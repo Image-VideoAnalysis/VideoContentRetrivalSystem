@@ -1,4 +1,4 @@
-### Visual Content Analysis
+# Visual Content Analysis
 
 - This is the repository containing:
   - **Shot boundary detection**
