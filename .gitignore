@@ -3,3 +3,4 @@ ShotBoundaryDetection/TransNetV2/__pycache__
 .DS_Store
 VCA
 src/TransNetV2/__pycache__/*
+src/V3C1_200/*
