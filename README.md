@@ -20,5 +20,8 @@
  - for Linux/MacOS:
 `source venv_name/bin/activate`
 
+To create a conda env from the requirements:
+conda env create -f environment.yml -p /home/user/anaconda3/envs/env_name
+
 
  
