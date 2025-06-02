@@ -1,10 +1,8 @@
 # https://github.com/soCzech/TransNetV2
 import torch
-from transnet import TransNetV2
 import ffmpeg
 import numpy as np
 import os
-
 
 
 def input_iterator(frames):
@@ -78,9 +76,14 @@ def predict_raw(model, video, device=torch.device('cpu')):
 
 def predict_video(filename_or_video, model):
     if isinstance(filename_or_video, str):
-        video_stream, err = ffmpeg.input(filename_or_video).output(
-            "pipe:", format="rawvideo", pix_fmt="rgb24", s="48x27"
-        ).run(capture_stdout=True, capture_stderr=True)
+        try:
+            print(f"Trying for {filename_or_video}")
+            video_stream, err = ffmpeg.input(filename_or_video).output(
+                "pipe:", format="rawvideo", pix_fmt="rgb24", s="48x27"
+            ).run(capture_stdout=True, capture_stderr=True)
+        except ffmpeg.Error as e:
+            print("ffmpeg error:", e.stderr.decode())
+            raise
         video = np.frombuffer(video_stream, np.uint8).reshape([-1, 27, 48, 3])
     else:
         assert filename_or_video.shape[1] == 27 and filename_or_video.shape[2] == 48 and filename_or_video.shape[3] == 3

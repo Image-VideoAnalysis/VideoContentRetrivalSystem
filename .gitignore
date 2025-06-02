@@ -4,3 +4,8 @@ ShotBoundaryDetection/TransNetV2/__pycache__
 VCA
 src/TransNetV2/__pycache__/*
 src/V3C1_200/*
+src/00100_segments/00100_segment_119.mp4
+src/results
+Test_dataset
+src/TransNetV2/__pycache__/*
+.DS_Store
