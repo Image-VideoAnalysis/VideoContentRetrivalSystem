@@ -20,8 +20,16 @@
  - for Linux/MacOS:
 `source venv_name/bin/activate`
 
-To create a conda env from the requirements:
-conda env create -f environment.yml -p /home/user/anaconda3/envs/env_name
+- To create a conda env from the requirements:
+`conda env create -f environment.yml -p /home/user/anaconda3/envs/env_name`
+
+- There are two environment files (one for Windows and the other one for MAC OS)
+
+- In Windows, the library **cv2** could give some problems. To solve them, try to reinstall it in the conda environment:
+
+`conda install opencv`
+
+`pip install opencv-python`
 
 
  
