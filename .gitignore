@@ -9,3 +9,4 @@ src/results
 Test_dataset
 src/TransNetV2/__pycache__/*
 .DS_Store
+src/__pycache__/*
