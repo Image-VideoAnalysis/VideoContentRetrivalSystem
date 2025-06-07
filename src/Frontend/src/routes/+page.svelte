@@ -1,18 +1,22 @@
 <script>
-  import Navbar from '../components/Navbar.svelte';
-  // import ResultsTable from './components/ResultsTable.svelte';
-  import { search } from '../lib/api.ts';
+    import ImageGrid from '../components/ImageGrid.svelte';
 
-  let results = [];
-
-  async function handleSearch(query) {
-    try {
-      results = await search(query);
-    } catch (e) {
-      console.error(e);
-      alert("Search failed. Try again.");
-    }
-  }
+    // Esempio di elenco di immagini (puoi sostituire con i tuoi dati)
+    let images = [
+        "https://via.placeholder.com/300",
+        "https://via.placeholder.com/300",
+        "https://via.placeholder.com/300",
+        // Aggiungi altre immagini qui
+    ];
 </script>
 
-<Navbar onSearch={handleSearch} />
+    <!-- Utilizzo del componente ImageGrid -->
+    <ImageGrid images={images} />
+
+<style>
+/* Aggiungi qui lo stile generale dell'applicazione */
+body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+}
+</style>
