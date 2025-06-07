@@ -1,8 +1,6 @@
 # Visual Content Analysis
 
-- This is the repository containing:
-  - **Shot boundary detection**
-  - **Deep Learning models**
+### Shot boundary detection and keyframe extraction
 
  To run the code on your local machine, you have to create a *virtual environment* by using:
 
@@ -31,5 +29,12 @@
 
 `pip install opencv-python`
 
+
+### Backend
+
+- To launch the **FastAPI** backend, run the following command:
+
+
+`uvicorn backend:app --reload`
 
  
