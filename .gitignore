@@ -10,3 +10,5 @@ Test_dataset
 src/TransNetV2/__pycache__/*
 .DS_Store
 src/__pycache__/*
+src/SBDresults
+src/TransNetV2/__pycache__/transnet.cpython-311.pyc
