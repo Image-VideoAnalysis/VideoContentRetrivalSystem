@@ -71,59 +71,11 @@ def process_video(video_path: str, keyframe_dir: str, model: TransNetV2,  CLIP_m
         print()
         print(f"Processing {video_name}: {frame_count} frames, {len(shots)} shots detected.")
 
-        # Iterate over every shot boundary pair
-        for idx, (start_frame, end_frame) in enumerate(shots):     
-            
-            # Rigth now using middle frame as keyframe, could be improved
-            mid_frame = int(start_frame + ((end_frame - start_frame) // 2))
-            
-            # Skip if TransNetV2 produced an out-of-range index
-            if mid_frame >= frame_count:
-                print(f"⚠️  mid-frame {mid_frame} beyond EOF – skipped")
-                continue
-            
-            # Find the middle frame and read it
-            cap.set(cv2.CAP_PROP_POS_FRAMES, mid_frame)
-            
-            # Try mid-frame first; fall back if necessary
-            ret, frame = fetch_nearest_decodable_frame(
-                            cap, target=mid_frame,
-                            start=start_frame, end=end_frame)
-            
-            #  fallback: step back 1 frame once
-            if not ret and mid_frame > start_frame:
-                cap.set(cv2.CAP_PROP_POS_FRAMES, mid_frame - 1)
-                ret, frame = cap.read()
-                
-            if not ret:
-                print(f"⚠️  Could not grab any frame in shot {idx}")
-                continue
-
-            
-            # From OpenCV to RGB to PIL.Image
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            img = Image.fromarray(frame_rgb)
-            
-            # Output file name:  <video>_<shot_idx>.jpg
-            fname = f"{video_name}_{idx}.jpg"
-            fpath = os.path.join(video_keyframe_dir, fname)
-            img.save(fpath, quality=95)
-
-            # Assemble per-shot metadata
-            segment_metadata.append({
-                "video_id": video_name,
-                "shot": idx,
-                "start_frame": int(start_frame),
-                "end_frame": int(end_frame),
-                "start_time": float(start_frame / fps),
-                "end_time": float(end_frame   / fps),
-                "keyframe_path": fpath,
-            })
             
         # Fallback if keyframe density is too low
-        MIN_KEYFRAME_DENSITY = 1 / 10  # at least 1 every 10 sec
+        MIN_KEYFRAME_DENSITY = 1 / 10  # at least 1 every 20 sec
         FALLBACK_INTERVAL_SEC = 5
-        actual_density = len(segment_metadata) / duration_sec
+        actual_density = len(shots) / duration_sec
         
         if fallback_enabled and actual_density < MIN_KEYFRAME_DENSITY:
             print(f" Low keyframe density ({actual_density:.4f} keyframes/sec). Triggering fallback...")
@@ -144,7 +96,7 @@ def process_video(video_path: str, keyframe_dir: str, model: TransNetV2,  CLIP_m
                 fallback_imgs.append(img)  
                 fallback_frames.append(frame_idx)
         
-            inputs = processor(images=predicted_fallback_keyframes, return_tensors="pt", padding=True)
+            inputs = processor(images=fallback_imgs, return_tensors="pt", padding=True)
             with torch.no_grad():
                 feats = CLIP_model.get_image_features(**inputs)
             # Normalize to unit length (L2)
@@ -172,6 +124,7 @@ def process_video(video_path: str, keyframe_dir: str, model: TransNetV2,  CLIP_m
 
             repr_idx.extend(np.where(labels == -1)[0])
             
+            idx = 0
             for local_i in repr_idx:
                 img = fallback_imgs[local_i]
                 fr_no = fallback_frames[local_i]
@@ -182,14 +135,63 @@ def process_video(video_path: str, keyframe_dir: str, model: TransNetV2,  CLIP_m
 
                 segment_metadata.append({
                     "video_id"    : video_name,
-                    "shot"        : f"fallback_{fr_no}",
+                    "shot"        : idx,
                     "start_frame" : fr_no,
                     "end_frame"   : fr_no,
                     "start_time"  : fr_no / fps,
                     "end_time"    : fr_no / fps,
                     "keyframe_path": path,
                 })
+                idx+=1
+        else:
+            # Iterate over every shot boundary pair
+            for idx, (start_frame, end_frame) in enumerate(shots):     
                 
+                # Rigth now using middle frame as keyframe, could be improved
+                mid_frame = int(start_frame + ((end_frame - start_frame) // 2))
+                
+                # Skip if TransNetV2 produced an out-of-range index
+                if mid_frame >= frame_count:
+                    print(f"⚠️  mid-frame {mid_frame} beyond EOF – skipped")
+                    continue
+                
+                # Find the middle frame and read it
+                cap.set(cv2.CAP_PROP_POS_FRAMES, mid_frame)
+                
+                # Try mid-frame first; fall back if necessary
+                ret, frame = fetch_nearest_decodable_frame(
+                                cap, target=mid_frame,
+                                start=start_frame, end=end_frame)
+                
+                #  fallback: step back 1 frame once
+                if not ret and mid_frame > start_frame:
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, mid_frame - 1)
+                    ret, frame = cap.read()
+                    
+                if not ret:
+                    print(f"⚠️  Could not grab any frame in shot {idx}")
+                    continue
+
+                
+                # From OpenCV to RGB to PIL.Image
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                img = Image.fromarray(frame_rgb)
+                
+                # Output file name:  <video>_<shot_idx>.jpg
+                fname = f"{video_name}_{idx}.jpg"
+                fpath = os.path.join(video_keyframe_dir, fname)
+                img.save(fpath, quality=95)
+
+                # Assemble per-shot metadata
+                segment_metadata.append({
+                    "video_id": video_name,
+                    "shot": idx,
+                    "start_frame": int(start_frame),
+                    "end_frame": int(end_frame),
+                    "start_time": float(start_frame / fps),
+                    "end_time": float(end_frame   / fps),
+                    "keyframe_path": fpath,
+                })
         # Free the video file handle
         cap.release()
 
