@@ -34,7 +34,8 @@
 
 - To launch the **FastAPI** backend, run the following command:
 
-
+`fastapi dev backend.py`
+or
 `uvicorn backend:app --reload`
 
  
