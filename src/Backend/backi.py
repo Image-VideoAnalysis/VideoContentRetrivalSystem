@@ -29,17 +29,15 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 clip_model, preprocess = clip.load("ViT-L/14", device=device)
 # Load Faiss index
 index = faiss.read_index("../image_index.faiss")
-img_filename_to_metadata = {}
+image_path_to_metadata = {}
 image_paths = []
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-metadata_dir = "../../../SBDresults/metadata/"
-keyframes_dir = "../../../SBDresults/keyframes"
-keyframes_abs_dir = os.path.abspath(keyframes_dir) 
+keyframes_dir = os.path.abspath("../../../SBDresults/keyframes")
 
 # Serve the keyframes at `/keyframes`
-app.mount("/keyframes", StaticFiles(directory=keyframes_abs_dir), name="keyframes")
+app.mount("/keyframes", StaticFiles(directory=keyframes_dir), name="keyframes")
 
 # Response models
 class VideoMetadata(BaseModel):
@@ -65,7 +63,7 @@ class SearchResponse(BaseModel):
 
 def load_image_paths():
     img_paths = []
-    for root, dirs, files in os.walk(keyframes_dir):
+    for root, dirs, files in os.walk("../../../SBDresults/keyframes/"):
         for file in files:
             if file.lower().endswith(('.png', '.jpg', '.jpeg')):
                 img_paths.append(root + "/" + file)
@@ -75,6 +73,7 @@ def load_image_paths():
 
 def load_metadata():
     # Load metadata from all JSON files in the folder
+    metadata_dir = "../../../SBDresults/metadata/"
     metadata = []
 
     if os.path.exists(metadata_dir):
@@ -94,12 +93,29 @@ def load_metadata():
     print(f"Loaded {len(metadata)} metadata entries")
     return metadata
 
+def get_video_shot_id(path):
+    # Get the base filename (e.g., "00001_17.jpg")
+    filename = os.path.basename(path)
 
-def load_img_filename_metadata_map(metadata):
-    global img_filename_to_metadata
-    for mt in metadata:
-        filename = os.path.basename(mt["keyframe_path"])
-        img_filename_to_metadata[filename] = mt
+    # Split the filename by "_" to get the video_id and the rest
+    parts = filename.split('_')
+
+    # The video_id is the first part
+    video_id = parts[0]
+
+    # The shot number is the second part, before the ".jpg" extension
+    shot = parts[1].split('.')[0]
+
+    return video_id, shot
+
+def load_img_paths_metadata_map(metadata):
+    global image_path_to_metadata
+    for path in image_paths:
+        video_id, shot = get_video_shot_id(path)
+        for mt in metadata:
+            if str(mt["video_id"]) == str(video_id) and str(mt["shot"]) == str(shot):
+                print(mt["video_id"], video_id, mt["shot"], shot)
+                image_path_to_metadata[path] = mt
 
 
 @app.on_event("startup")
@@ -112,9 +128,15 @@ def load_resources():
     print(f"Faiss index loaded with {index.ntotal} vectors")
     
     image_paths = load_image_paths()
+    
     metadata = load_metadata()
 
-    load_img_filename_metadata_map(metadata)
+    print(metadata[0])
+
+    load_img_paths_metadata_map(metadata)
+
+    print("IMAGE PATH: ", image_paths[0])
+    print("MAP: ", image_path_to_metadata)
 
 
 # tokenize text and generate text feature vector with clip 
@@ -140,10 +162,7 @@ def query_index(index, query_features, top_k=10):
                     img_path = image_paths[idx]
                     print("img_path: ", img_path)
 
-                    filename = os.path.basename(img_path)
-                    print("FILENAME: ", filename)
-
-                    meta = img_filename_to_metadata[filename]
+                    meta = image_path_to_metadata[img_path]
                     print("meta: ", meta)
                     
                     # extract image path from metadata
@@ -224,14 +243,16 @@ def search_images(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
-# get video metadata by image filename
-@app.get("/metadata/{filename}")
-def get_metadata(filename: str):
+# get video metadata by index (FAISS indexes)
+# metadata are ordered from the first keyframe of the first video metadata (with index 1) 
+
+@app.get("/metadata/{index_id}")
+def get_metadata(index_id: int):
     # Get metadata for a specific index
-    if not img_filename_to_metadata[filename]:
+    if index_id < 0 or index_id >= len(metadata):
         raise HTTPException(status_code=404, detail="Index not found")
     
-    meta = img_filename_to_metadata[filename]
+    meta = metadata[index_id]
     try:
         return VideoMetadata(
             video_id=meta.get('video_id', ''),
@@ -245,6 +266,35 @@ def get_metadata(filename: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing metadata: {str(e)}")
 
+# get video shots by index (format: 00001)
+@app.get("/videos/{video_id}")
+def get_video_shots(video_id: str):
+    # Get all shots for a specific video
+    video_shots = [meta for meta in metadata if meta.get('video_id') == video_id]
+    
+    if not video_shots:
+        raise HTTPException(status_code=404, detail=f"No shots found for video {video_id}")
+    
+    try:
+        formatted_shots = []
+        for meta in video_shots:
+            formatted_shots.append(VideoMetadata(
+                video_id=meta.get('video_id', ''),
+                shot=meta.get('shot', 0),
+                start_frame=meta.get('start_frame', 0),
+                end_frame=meta.get('end_frame', 0),
+                start_time=meta.get('start_time', 0.0),
+                end_time=meta.get('end_time', 0.0),
+                keyframe_path=meta.get('keyframe_path', '')
+            ))
+        
+        return {
+            "video_id": video_id,
+            "total_shots": len(formatted_shots),
+            "shots": formatted_shots
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing video shots: {str(e)}")
 
 # check the server status
 @app.get("/health")
@@ -254,20 +304,20 @@ def health_check():
         "models_loaded": clip_model is not None and index is not None,
         "device": device,
         "index_size": index.ntotal if index else 0,
-        "metadata_loaded": len(img_filename_to_metadata) > 0
+        "metadata_loaded": len(metadata) > 0
     }
 
 # get data stats like total videos, total shots, total keyframes, video ids
 @app.get("/stats")
 def get_stats():
-    if not img_filename_to_metadata:
+    if not metadata:
         return {"error": "No metadata loaded"}
     
     video_ids = set()
     total_shots = 0
     total_duration = 0.0
     
-    for meta in img_filename_to_metadata.values():
+    for meta in metadata:
         if 'video_id' in meta:
             video_ids.add(meta['video_id'])
         if 'shot' in meta:
@@ -278,7 +328,7 @@ def get_stats():
     return {
         "total_videos": len(video_ids),
         "total_shots": total_shots,
-        "total_keyframes": len(img_filename_to_metadata),
+        "total_keyframes": len(metadata),
         "total_duration_seconds": round(total_duration, 2),
         "average_shot_duration": round(total_duration / total_shots, 2) if total_shots > 0 else 0,
         "video_ids": sorted(list(video_ids))

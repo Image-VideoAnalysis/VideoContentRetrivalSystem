@@ -1,11 +1,10 @@
 <script>
-  export let onSearch;
+    import { fetchVideos } from "$lib/stores";
+
   let query = "";
 
   const submit = () => {
-    if (query.trim().length > 0) {
-      onSearch(query);
-    }
+    fetchVideos(query)
   };
 </script>
 

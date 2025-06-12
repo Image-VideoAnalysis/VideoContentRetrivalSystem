@@ -1,4 +1,13 @@
 
+ // Define a type for the image data displayed in the gallery
+ export interface GalleryImage {
+      url: string;
+      alt: string;
+      title: string;
+      video_id: string;
+      start_time: string;
+      end_time: string;
+  }
 
 // Interface for VideoMetadata, mirroring the FastAPI model
 export interface VideoMetadata {
