@@ -1,5 +1,7 @@
 <script lang="ts">
     import { loading, images, error } from "$lib/stores";
+
+    let currentVideoSrc: string | null = null;
     
 </script>
 
@@ -39,6 +41,22 @@
         </div>
     {/if}
 </div>
+{#if currentVideoSrc}
+<div class="mb-4">
+    <h2>Video Result</h2>
+    <video
+    src={currentVideoSrc}
+    controls
+    autoplay
+    muted
+    class="img-fluid rounded"
+    style="width: 100%; max-height: 70vh; background-color: #000;"
+    key={currentVideoSrc}
+    >
+    Your browser does not support the video tag.
+    </video>
+</div>
+{/if}
 
 <style>
     /* Styling for the container and grid layout */
