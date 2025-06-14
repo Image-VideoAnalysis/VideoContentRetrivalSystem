@@ -49,8 +49,8 @@ image_paths = []
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-metadata_dir = "../../../SBDresults/metadata/"
-keyframes_dir = "../../../SBDresults/keyframes"
+metadata_dir = "../../SBDresults/metadata/"
+keyframes_dir = "../../SBDresults/keyframes"
 keyframes_abs_dir = os.path.abspath(keyframes_dir) 
 
 # Serve the keyframes at `/keyframes`
