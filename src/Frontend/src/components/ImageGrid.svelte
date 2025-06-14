@@ -1,8 +1,9 @@
 <script lang="ts">
     import { loading, images, error } from "$lib/stores";
+    import { writable } from "svelte/store";
 
-    let currentVideoSrc: string | null = null;
-    
+    // Store for currently selected video segment
+    const selectedVideo = writable<{ video_id: string; start_time: number; end_time: number } | null>(null);
 </script>
 
 <div class="container my-4">
@@ -14,14 +15,26 @@
         <p class="message-container">No keyframes found. Try adjusting the search query or check the backend.</p>
     {:else}
         <div class="row">
-            {#each $images as img (img.url)} <!-- Use img.url as a unique key for iteration -->
+            {#each $images as img (img.url)}
                 <div class="col">
                     <div
                         class="card h-100 shadow-sm"
                         role="button"
                         tabindex="0"
-                        on:click={() => console.log('Card clicked:', img.title)}
-                        on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') console.log('Card activated:', img.title); }}
+                        on:click={() => selectedVideo.set({
+                            video_id: img.video_id,
+                            start_time: img.start_time,
+                            end_time: img.end_time
+                        })}
+                        on:keydown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                selectedVideo.set({
+                                    video_id: img.video_id,
+                                    start_time: img.start_time,
+                                    end_time: img.end_time
+                                });
+                            }
+                        }}
                     >
                         <img
                             src={img.url || 'img_placeholder.png'}
@@ -39,27 +52,39 @@
                 </div>
             {/each}
         </div>
+
+        <!-- Video Player -->
+        {#if $selectedVideo}
+            <div class="video-player-container mt-4">
+                <h4>Playing video: {$selectedVideo.video_id}</h4>
+                <video controls autoplay width="100%">
+                    <source src={`../../../V3C1_200/${$selectedVideo.video_id}.mp4#t=${$selectedVideo.start_time},${$selectedVideo.end_time}`} type="video/mp4" />
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        {/if}
     {/if}
 </div>
-{#if currentVideoSrc}
-<div class="mb-4">
-    <h2>Video Result</h2>
-    <video
-    src={currentVideoSrc}
-    controls
-    autoplay
-    muted
-    class="img-fluid rounded"
-    style="width: 100%; max-height: 70vh; background-color: #000;"
-    key={currentVideoSrc}
-    >
-    Your browser does not support the video tag.
-    </video>
-</div>
-{/if}
+
+
+
 
 <style>
     /* Styling for the container and grid layout */
+    .video-player-container {
+        margin-top: 2rem;
+        background-color: #1e1e1e;
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid #333;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .video-player-container h4 {
+        color: #f8f8f8;
+        margin-bottom: 1rem;
+    }
+
     .container {
         max-width: 1200px;
         margin: 2rem auto;
