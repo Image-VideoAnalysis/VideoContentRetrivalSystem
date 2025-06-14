@@ -49,11 +49,11 @@ image_paths = []
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-metadata_dir = "../../SBDresults/metadata/"
-keyframes_dir = "../../SBDresults/keyframes"
+metadata_dir = os.getenv("METADATA_DIR")
+keyframes_dir = os.getenv("KEYFRAMES_DIR")
 keyframes_abs_dir = os.path.abspath(keyframes_dir) 
 
-# Serve the keyframes at `/keyframes`
+# Serve the keyframes at /keyframes
 app.mount("/keyframes", StaticFiles(directory=keyframes_abs_dir), name="keyframes")
 
 # Response models
