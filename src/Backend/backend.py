@@ -10,7 +10,22 @@ import uvicorn
 import os
 from typing import List, Optional
 from fastapi.staticfiles import StaticFiles
+import requests
+from dotenv import load_dotenv
 
+load_dotenv()
+
+# DRES infos
+DRES_BASE_URL = "https://vbs.videobrowsing.org/api/v2"
+USERNAME = os.getenv("DRES_USERNAME")
+PASSWORD = os.getenv("DRES_PASSWORD")
+
+# DRES session 
+session = {
+    "token": None,
+    "evaluationId": None,
+    "taskName": None,
+}
 
 app = FastAPI()
 
@@ -107,6 +122,8 @@ def load_resources():
     global image_paths
     
     print("Loading resources...")
+
+    print(f"Username: {USERNAME}")
     
     print(f"CLIP model loaded on {device}")    
     print(f"Faiss index loaded with {index.ntotal} vectors")
@@ -223,6 +240,76 @@ def search_images(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+
+def get_evaluation_list():
+    response = requests.get(f"{DRES_BASE_URL}/client/evaluation/list?session={session["token"]}")
+
+    print("STATUS CODE: ", response.status_code)
+    if response.status_code != 200:
+        print("Evaluation list failed")
+        return None
+    
+    data = json.loads(response.text)
+    print("DATA: ", response.text)
+
+    # take the first element (for the competition, the correct evaluation name should be IVADL2025)
+    eval_id = data[0].get("id")
+    eval_name = data[0].get("taskTemplates")[0]
+    session["evaluationId"] = eval_id
+    session["taskName"] = eval_name
+
+@app.post("/login")
+def login():
+    body = {
+        "username": USERNAME,
+        "password": PASSWORD
+    }
+    response = requests.post(f"{DRES_BASE_URL}/login", json=body)
+    
+    if response.status_code != 200:
+        print("Login failed:", response.json())
+        return None
+    
+    data = json.loads(response.text) 
+    session_id = data.get("sessionId")
+    print("SESSION: ", session_id)
+    session["token"] = session_id
+    get_evaluation_list()
+
+
+def dres_submit(text: str=None, mediaItemName: str=None, mediaItemCollName: str="IVADL", start: int=10, end: int=100):
+    body_result = {
+        "answerSets": [
+            {
+            "taskId": None,
+            "taskName": "KISV Test 01",
+            "answers": [
+                {
+                "text": text,
+                "mediaItemName": mediaItemName,
+                "mediaItemCollectionName": mediaItemCollName,
+                "start": start,
+                "end": end
+                }
+            ]
+            }
+        ]
+    }
+
+    response = requests.post(f"{DRES_BASE_URL}/submit/{session['evaluationId']}?session={session["token"]}", json=body_result)
+
+    print("STATUS", response.status_code)
+    if response.status_code != 200:
+        print("Submission failed:", response.text)
+        return None
+    
+    print("Response: ", response.text)
+
+@app.post("/submit")
+def submit():
+    dres_submit(mediaItemName="00001")
+
 
 # get video metadata by image filename
 @app.get("/metadata/{filename}")
