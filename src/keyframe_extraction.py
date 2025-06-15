@@ -66,6 +66,7 @@ def process_video(video_path: str, keyframe_dir: str, model: TransNetV2,  CLIP_m
         if not cap.isOpened():
             raise FileNotFoundError(f"Could not open {video_path}")
         fps = cap.get(cv2.CAP_PROP_FPS)
+    
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         duration_sec = frame_count / fps
         print()
