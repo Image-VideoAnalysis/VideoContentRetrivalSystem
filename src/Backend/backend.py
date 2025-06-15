@@ -83,6 +83,10 @@ class SearchResponse(BaseModel):
     results: List[SearchResult]
     total_results: int
 
+class Submission(BaseModel):
+    mediaItemName: str
+    start: int
+    end: int
 
 def load_image_paths():
     """Loads all image paths from the keyframes directory."""
@@ -91,7 +95,9 @@ def load_image_paths():
         for file in files:
             if file.lower().endswith(('.png', '.jpg', '.jpeg')):
                 img_paths.append(os.path.join(root, file))
-    
+
+    img_paths.sort(key=lambda x: x.lower())
+
     print(f"Loaded {len(img_paths)} image paths entries")
     return img_paths
 
@@ -255,40 +261,50 @@ def login():
     
 
 
-def dres_submit(text: str=None, mediaItemName: str=None, mediaItemCollName: str="IVADL", start: int=0, end: int=0):
+def dres_submit(text: str=None, mediaItemName: str=None, mediaItemCollName: str="IVADL", start: int=32210, end: int=32210):
     """Submits results to the DRES system."""
     if not session["token"] or not session["evaluationId"]:
         raise HTTPException(status_code=400, detail="Not logged into DRES or evaluation not set.")
 
     body_result = {
-        "taskId": session["taskName"], # This should probably be dynamic
+    "answerSets": [
+        {
+        "taskId": None,
+        "taskName": session["taskName"],
         "answers": [
             {
-                "text": text,
-                "item": {
-                    "name": mediaItemName,
-                    "collection": mediaItemCollName,
-                },
-                "start": start,
-                "end": end
+            "text": None,
+            "mediaItemName": mediaItemName,
+            "mediaItemCollectionName": "IVADL",
+            "start": start,
+            "end": end
             }
         ]
+        }
+    ]
     }
+    response = requests.post(f"{DRES_BASE_URL}/submit/{session['evaluationId']}?session={session["token"]}", json=body_result)
 
-    submit_url = f"{DRES_BASE_URL}/evaluation/{session['evaluationId']}/submit?session={session['token']}"
-    try:
-        response = requests.post(submit_url, json=body_result)
-        response.raise_for_status()
-        print("DRES submission successful:", response.text)
-        return response.json()
-    except requests.RequestException as e:
-        print(f"DRES submission failed: {e.text}")
-        raise HTTPException(status_code=500, detail=f"DRES submission failed: {e.text}")
+    print("STATUS", response.status_code)    
+    print("Response: ", response.text)
+    return response.json()
 
 @app.post("/submit")
-def submit():
-    # Example submission, should be replaced with actual data
-    return dres_submit(mediaItemName="00001", start=1000, end=2000)
+def submit(submission: Submission):
+    print("Received submission:", submission)
+
+    submit_res = dres_submit(
+        mediaItemName=submission.mediaItemName,
+        start=submission.start,
+        end=submission.end
+    )
+
+    print("SUBMIT RES: ", submit_res)
+
+    if not submit_res.get("status"):
+        raise HTTPException(status_code=500, detail=submit_res["description"])
+    
+    return submit_res
 
 
 @app.get("/metadata/{filename}", response_model=VideoMetadata)
