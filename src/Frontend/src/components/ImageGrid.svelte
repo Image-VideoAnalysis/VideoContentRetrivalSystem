@@ -8,49 +8,57 @@
     // Store for the currently selected video to play
     const selectedVideo = writable<{ video_id: string; start_time: number; end_time: number } | null>(null);
 
-    // New: Store for the shots of the currently playing video
-    const videoShots = writable<any[]>([]); // Added type for better safety
+    // Store for the shots of the currently playing video
+    const videoShots = writable<any[]>([]);
     const shotsLoading = writable(false);
     
-    // New: A reference to the HTML <video> element to control it directly
+    // Reference to the HTML <video> element
     let videoElement: HTMLVideoElement;
+
+    // --- Submission State ---
+    const startTime = writable<number | null>(null);
+    const endTime = writable<number | null>(null);
+    const submissionStatus = writable<'idle' | 'submitting' | 'success' | 'error'>('idle');
+
 
     // --- REACTIVE LOGIC ---
 
     // This block runs whenever the 'selectedVideo' store changes
     $: if ($selectedVideo) {
-        // When a new video is selected, fetch its shots
+        // When a new video is selected, fetch its shots and reset submission state
         fetchVideoShots($selectedVideo.video_id);
+        startTime.set(null);
+        endTime.set(null);
+        submissionStatus.set('idle');
     } else {
         // When the player is closed, clear the list of shots
         videoShots.set([]);
     }
 
-    // This key ensures the <video> element is completely re-rendered when the source changes,
-    // avoiding issues with the browser not updating the source correctly.
+    // This key ensures the <video> element is completely re-rendered when the source changes
     $: videoKey = $selectedVideo
     ? `${$selectedVideo.video_id}_${$selectedVideo.start_time}_${$selectedVideo.end_time}`
     : null;
+    
+    // A computed property to check if submission is possible
+    $: canSubmit = $startTime !== null && $endTime !== null && $startTime < $endTime;
+
 
     // --- FUNCTIONS ---
 
     /**
      * Fetches all shots for a given video ID from the backend API.
-     * @param {string} videoId - The ID of the video to fetch shots for.
      */
     async function fetchVideoShots(videoId: string) {
         shotsLoading.set(true);
         try {
-            // Call the new endpoint you created
             const response = await fetch(`http://localhost:8000/videos/${videoId}/shots`);
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
+            if (!response.ok) throw new Error('Network response was not ok');
             const data = await response.json();
             videoShots.set(data);
         } catch (err) {
             console.error("Failed to fetch video shots:", err);
-            videoShots.set([]); // Clear shots on error
+            videoShots.set([]);
         } finally {
             shotsLoading.set(false);
         }
@@ -58,71 +66,108 @@
 
     /**
      * Seeks the main video player to a specific time.
-     * @param {number} time - The time in seconds to seek to.
      */
     function seekTo(time: number) {
         if (videoElement) {
             videoElement.currentTime = time;
-            videoElement.play(); // Optional: automatically play after seeking
+            videoElement.play();
         }
     }
 
     /**
-     * FIX: Handles image loading errors for shot thumbnails.
-     * Replaces the broken image source with a placeholder.
-     * @param {Event} e - The error event.
+     * Handles image loading errors for shot thumbnails.
      */
     function handleImageError(e: Event & { currentTarget: HTMLImageElement }) {
         e.currentTarget.src = 'https://placehold.co/140x79/1e1e1e/aaaaaa?text=Error';
     }
-
+    
     /**
-     * FIX: Constructs the correct, full URL for a keyframe image.
-     * The backend provides an absolute file path, but we need a URL relative
-     * to the '/keyframes' static route.
-     * @param {string} keyframePath - The full file path from the backend.
+     * Constructs the correct, full URL for a keyframe image.
      */
     function getImageUrl(keyframePath: string): string {
-        if (!keyframePath) {
-            return 'https://placehold.co/140x79/1e1e1e/aaaaaa?text=No+Path';
-        }
-        // Use a regular expression to split by either /keyframes/ or \keyframes\ (for Windows paths)
+        if (!keyframePath) return 'https://placehold.co/140x79/1e1e1e/aaaaaa?text=No+Path';
         const pathParts = keyframePath.split(/[\/\\]keyframes[\/\\]/);
         const relativePath = pathParts.length > 1 ? pathParts[1] : '';
-
         if (!relativePath) {
-            // As a fallback, try to get the last two parts of the path (e.g., video_id/frame.jpg)
             const fallbackParts = keyframePath.replace(/\\/g, '/').split('/');
             if (fallbackParts.length >= 2) {
                  return `http://localhost:8000/keyframes/${fallbackParts.slice(-2).join('/')}`;
             }
             return 'https://placehold.co/140x79/1e1e1e/aaaaaa?text=Bad+Path';
         }
-
         return `http://localhost:8000/keyframes/${relativePath.replace(/\\/g, '/')}`;
+    }
+
+    // --- Submission Functions ---
+
+    /**
+     * Sets the start time for the submission to the video's current time.
+     */
+    function setStartTime() {
+        if (videoElement) {
+            startTime.set(videoElement.currentTime);
+            submissionStatus.set('idle'); // Reset status when time changes
+        }
+    }
+    
+    /**
+     * Sets the end time for the submission to the video's current time.
+     */
+    function setEndTime() {
+        if (videoElement) {
+            endTime.set(videoElement.currentTime);
+            submissionStatus.set('idle');
+        }
+    }
+
+    /**
+     * Submits the selected time range to the backend.
+     */
+    async function submitSelection() {
+        if (!canSubmit || !$selectedVideo) return;
+
+        submissionStatus.set('submitting');
+        try {
+            const response = await fetch('http://localhost:8000/submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    mediaItemName: $selectedVideo.video_id,
+                    start: Math.floor($startTime * 1000), // Convert to milliseconds
+                    end: Math.floor($endTime * 1000)
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Submission failed');
+            }
+            
+            submissionStatus.set('success');
+            setTimeout(() => submissionStatus.set('idle'), 2000); // Reset after 2s
+
+        } catch (err) {
+            console.error('Submission error:', err);
+            submissionStatus.set('error');
+            setTimeout(() => submissionStatus.set('idle'), 3000); // Reset after 3s
+        }
     }
 </script>
 
-<!--
-  Main container.
-  The 'video-selected' class is dynamically added when a video is active.
-  This class triggers the layout change from a full-page grid to a player-and-sidebar view.
--->
+<!-- Main container -->
 <div class="page-container" class:video-selected={$selectedVideo !== null}>
 
     <!-- Video Player Wrapper -->
     <div class="video-player-wrapper">
         {#if $selectedVideo}
-            <!-- The 'in:fly' transition makes the player appear smoothly from the top. -->
             <div class="video-player-container" in:fly={{ y: -20, duration: 400, delay: 200 }} out:slide>
                 <div class="video-header">
                     <h4>Playing: {$selectedVideo.video_id}</h4>
-                    <!-- A stylish close button to clear the selected video -->
                     <button class="close-button" on:click={() => selectedVideo.set(null)} title="Close player">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
                 </div>
-                 <!-- The #key block ensures the video element is re-created when the source changes -->
+                
                 {#key videoKey}
                     <video controls autoplay width="100%" bind:this={videoElement}>
                         <track kind="captions" />
@@ -133,8 +178,40 @@
                         Your browser does not support the video tag.
                     </video>
                 {/key}
+                
+                <!-- Submission Controls -->
+                <div class="submission-controls">
+                    <div class="time-selectors">
+                        <button class="time-button" on:click={setStartTime}>Set Start</button>
+                        <div class="time-display">
+                            Start: {$startTime !== null ? $startTime.toFixed(2) + 's' : 'Not set'}
+                        </div>
+                        <button class="time-button" on:click={setEndTime}>Set End</button>
+                         <div class="time-display">
+                            End: {$endTime !== null ? $endTime.toFixed(2) + 's' : 'Not set'}
+                        </div>
+                    </div>
+                    <button 
+                        class="submit-button"
+                        class:submitting={$submissionStatus === 'submitting'}
+                        class:success={$submissionStatus === 'success'}
+                        class:error={$submissionStatus === 'error'}
+                        disabled={!canSubmit || $submissionStatus !== 'idle'}
+                        on:click={submitSelection}
+                    >
+                        {#if $submissionStatus === 'submitting'}
+                            Submitting...
+                        {:else if $submissionStatus === 'success'}
+                            Success!
+                        {:else if $submissionStatus === 'error'}
+                            Error!
+                        {:else}
+                            Submit
+                        {/if}
+                    </button>
+                </div>
 
-                <!-- === NEW: Related Shots Section === -->
+                <!-- Related Shots Section -->
                 <div class="related-shots-container">
                     {#if $shotsLoading}
                         <p class="shots-message">Loading shots...</p>
@@ -148,6 +225,8 @@
                                         alt={`Shot ${shot.shot}`}
                                         on:error={handleImageError}
                                     />
+                                    <!-- FIX: Added shot number -->
+                                    <span class="shot-number">Shot {shot.shot}</span>
                                     <span class="shot-time">{shot.start_time.toFixed(2)}s</span>
                                 </button>
                             {/each}
@@ -159,7 +238,6 @@
     </div>
 
     <!-- Thumbnails Container -->
-    <!-- This container holds the grid of video thumbnails. Its layout adapts based on the 'video-selected' class on the parent. -->
     <div class="thumbnails-container">
         {#if $loading}
             <p class="message-container loading-message">Loading keyframes...</p>
@@ -168,14 +246,10 @@
         {:else if $images.length === 0}
             <p class="message-container">No keyframes found. Try adjusting the search query.</p>
         {:else}
-            <!-- This 'row' div is the direct container for the cards, switching between grid and list-item styles -->
             <div class="row">
                 {#each $images as img (img.url)}
                     <div class="col">
-                        <div
-                            class="card h-100"
-                            role="button"
-                            tabindex="0"
+                        <div class="card h-100" role="button" tabindex="0"
                             on:click={() => selectedVideo.set({
                                 video_id: img.video_id,
                                 start_time: img.start_time,
@@ -220,6 +294,8 @@
         --text-primary: #f1f1f1;
         --text-secondary: #aaaaaa;
         --accent-color: #3ea6ff;
+        --success-color: #28a745;
+        --error-color: #dc3545;
         --shadow-color: rgba(0, 0, 0, 0.3);
     }
 
@@ -240,17 +316,22 @@
     }
 
     .video-selected .video-player-wrapper {
-        flex: 1 1 70%;
+        /* FIX: Let this column be flexible */
+        flex: 1;
+        min-width: 0; /* Important fix for flex items */
+
         position: sticky;
         top: 1rem;
-        /* FIX: Prevent the wrapper from growing taller than the screen */
         max-height: calc(100vh - 2rem);
-        overflow-y: auto; /* Allow scrolling for the shot list if needed */
+        overflow-y: auto;
     }
 
     .video-selected .thumbnails-container {
-        flex: 1 1 30%;
-        max-width: 420px;
+        /* FIX: Give this column a fixed base width */
+        flex: 0 0 420px;
+        
+        max-height: calc(100vh - 2rem);
+        overflow-y: auto;
     }
 
     /* === VIDEO PLAYER === */
@@ -277,9 +358,81 @@
     video {
         display: block;
         background-color: #000;
-        /* FIX: Ensure video scales correctly within its container */
         width: 100%;
         height: auto;
+    }
+
+    /* === Submission Controls === */
+    .submission-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        background-color: var(--dark-bg-tertiary);
+        border-top: 1px solid var(--border-color);
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .time-selectors {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .time-button {
+        background-color: #333;
+        color: var(--text-primary);
+        border: 1px solid #555;
+        border-radius: 6px;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        font-weight: 500;
+        transition: background-color 0.2s;
+    }
+
+    .time-button:hover {
+        background-color: #444;
+    }
+
+    .time-display {
+        background-color: #222;
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        min-width: 100px;
+        text-align: center;
+    }
+    
+    .submit-button {
+        background-color: var(--accent-color);
+        color: white;
+        font-weight: bold;
+        border: none;
+        padding: 0.6rem 1.5rem;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background-color 0.2s, transform 0.1s;
+    }
+
+    .submit-button:disabled {
+        background-color: #555;
+        cursor: not-allowed;
+        color: #999;
+    }
+    
+    .submit-button:not(:disabled):hover {
+        filter: brightness(1.1);
+    }
+    .submit-button.submitting {
+        background-color: #555;
+    }
+    .submit-button.success {
+        background-color: var(--success-color);
+    }
+    .submit-button.error {
+        background-color: var(--error-color);
     }
 
     /* === CLOSE BUTTON === */
@@ -303,7 +456,6 @@
         width: 20px;
         height: 20px;
     }
-
 
     /* === THUMBNAILS === */
     .thumbnails-container {
@@ -380,7 +532,7 @@
         color: var(--text-secondary);
     }
 
-    /* === NEW: Related Shots Styles === */
+    /* === Related Shots Styles === */
     .related-shots-container {
         padding: 1rem;
         background-color: var(--dark-bg-tertiary);
@@ -404,26 +556,16 @@
         display: flex;
         gap: 0.75rem;
         overflow-x: auto;
-        padding-bottom: 0.5rem; /* For scrollbar spacing */
+        padding-bottom: 0.5rem;
     }
 
-    .shots-grid::-webkit-scrollbar {
-        height: 8px;
-    }
-    .shots-grid::-webkit-scrollbar-track {
-        background: var(--dark-bg-secondary);
-        border-radius: 4px;
-    }
-    .shots-grid::-webkit-scrollbar-thumb {
-        background: #555;
-        border-radius: 4px;
-    }
-    .shots-grid::-webkit-scrollbar-thumb:hover {
-        background: #777;
-    }
+    .shots-grid::-webkit-scrollbar { height: 8px; }
+    .shots-grid::-webkit-scrollbar-track { background: var(--dark-bg-secondary); border-radius: 4px; }
+    .shots-grid::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+    .shots-grid::-webkit-scrollbar-thumb:hover { background: #777; }
 
     .shot-thumbnail {
-        all: unset; /* Reset button styles */
+        all: unset;
         box-sizing: border-box;
         display: block;
         position: relative;
@@ -438,15 +580,28 @@
         background-color: var(--dark-bg-secondary);
     }
 
-    .shot-thumbnail:hover, .shot-thumbnail:focus-visible {
-        border-color: var(--accent-color);
-    }
+    .shot-thumbnail:hover, .shot-thumbnail:focus-visible { border-color: var(--accent-color); }
 
-    .shot-thumbnail img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
+    .shot-thumbnail img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .shot-info {
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 2px 6px;
+        font-size: 0.7rem;
+        border-radius: 4px;
+    }
+    
+    /* FIX: Positioning for shot number and time */
+    .shot-number {
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 2px 6px;
+        font-size: 0.7rem;
+        border-radius: 4px;
     }
 
     .shot-time {
@@ -462,18 +617,9 @@
 
 
     /* === MESSAGES === */
-    .message-container {
-        text-align: center;
-        padding: 2rem;
-        font-size: 1.2rem;
-        color: var(--text-secondary);
-    }
-    .error-message {
-        color: #ff8a8a;
-    }
-    .loading-message {
-        color: var(--accent-color);
-    }
+    .message-container { text-align: center; padding: 2rem; font-size: 1.2rem; color: var(--text-secondary); }
+    .error-message { color: #ff8a8a; }
+    .loading-message { color: var(--accent-color); }
 
     /* === RESPONSIVE ADJUSTMENTS === */
     @media (max-width: 992px) {
@@ -483,20 +629,24 @@
         }
         .video-selected .video-player-wrapper {
             position: static;
-            max-height: none; /* Remove max-height for stacked layout */
+            max-height: none;
         }
-        .video-selected .thumbnails-container {
+        .video-selected .thumbnails-container { 
+            flex: 1 1 auto; /* Let it be flexible in stacked view */
             max-width: none;
+            max-height: none; /* Also remove max-height in stacked view */
         }
     }
     
     @media (max-width: 480px) {
-        .row {
-            grid-template-columns: 1fr;
+        .row { grid-template-columns: 1fr; }
+        .page-container { margin: 0.5rem auto; padding: 0 0.5rem; }
+        .submission-controls {
+            flex-direction: column;
+            align-items: stretch;
         }
-        .page-container {
-            margin: 0.5rem auto;
-            padding: 0 0.5rem;
+        .submit-button {
+            width: 100%;
         }
     }
 </style>
