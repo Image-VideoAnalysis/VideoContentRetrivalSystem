@@ -14,3 +14,6 @@ src/SBDresults
 src/TransNetV2/__pycache__/transnet.cpython-311.pyc
 src/SBDresults_with_fallback
 src/videos_with_fallback/*
+/SBDresults/*
+src/Frontend/static/videos/*
+.env

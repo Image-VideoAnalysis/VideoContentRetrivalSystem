@@ -10,7 +10,22 @@ import uvicorn
 import os
 from typing import List, Optional
 from fastapi.staticfiles import StaticFiles
+import requests
+from dotenv import load_dotenv
 
+load_dotenv()
+
+# DRES infos
+DRES_BASE_URL = "https://vbs.videobrowsing.org/api/v2"
+USERNAME = os.getenv("DRES_USERNAME")
+PASSWORD = os.getenv("DRES_PASSWORD")
+
+# DRES session 
+session = {
+    "token": None,
+    "evaluationId": None,
+    "taskName": None,
+}
 
 app = FastAPI()
 
@@ -34,19 +49,25 @@ image_paths = []
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-metadata_dir = "../../../SBDresults/metadata/"
-keyframes_dir = "../../../SBDresults/keyframes"
+metadata_dir = os.getenv("METADATA_DIR")
+keyframes_dir = os.getenv("KEYFRAMES_DIR")
 keyframes_abs_dir = os.path.abspath(keyframes_dir) 
 
-# Serve the keyframes at `/keyframes`
+# Serve the keyframes at /keyframes
 app.mount("/keyframes", StaticFiles(directory=keyframes_abs_dir), name="keyframes")
 
-# Response models
+# --- Pydantic Response Models ---
 class VideoMetadata(BaseModel):
     video_id: str
     shot: int
     start_frame: int
     end_frame: int
+    start_time: float
+    end_time: float
+    keyframe_path: str
+
+class Shot(BaseModel):
+    shot: int
     start_time: float
     end_time: float
     keyframe_path: str
@@ -64,17 +85,18 @@ class SearchResponse(BaseModel):
 
 
 def load_image_paths():
+    """Loads all image paths from the keyframes directory."""
     img_paths = []
     for root, dirs, files in os.walk(keyframes_dir):
         for file in files:
             if file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                img_paths.append(root + "/" + file)
+                img_paths.append(os.path.join(root, file))
     
     print(f"Loaded {len(img_paths)} image paths entries")
     return img_paths
 
 def load_metadata():
-    # Load metadata from all JSON files in the folder
+    """Loads and aggregates metadata from all JSON files in the metadata directory."""
     metadata = []
 
     if os.path.exists(metadata_dir):
@@ -96,6 +118,7 @@ def load_metadata():
 
 
 def load_img_filename_metadata_map(metadata):
+    """Creates a mapping from keyframe filenames to their metadata."""
     global img_filename_to_metadata
     for mt in metadata:
         filename = os.path.basename(mt["keyframe_path"])
@@ -104,9 +127,12 @@ def load_img_filename_metadata_map(metadata):
 
 @app.on_event("startup")
 def load_resources():
+    """Load all necessary resources on application startup."""
     global image_paths
     
     print("Loading resources...")
+
+    print(f"Username: {USERNAME}")
     
     print(f"CLIP model loaded on {device}")    
     print(f"Faiss index loaded with {index.ntotal} vectors")
@@ -117,66 +143,47 @@ def load_resources():
     load_img_filename_metadata_map(metadata)
 
 
-# tokenize text and generate text feature vector with clip 
-def encode_text(text_queries):
+def encode_text(text_queries: List[str]) -> np.ndarray:
+    """Encodes a list of text queries into feature vectors using CLIP."""
     print("Encoding text query...")
-    text = clip.tokenize(text_queries).to(device)
+    text_tokens = clip.tokenize(text_queries).to(device)
     with torch.no_grad():
-        text_features = clip_model.encode_text(text)
+        text_features = clip_model.encode_text(text_tokens)
         text_features = torch.nn.functional.normalize(text_features, p=2, dim=1)
     return text_features.cpu().numpy().astype('float32')
 
-# query the FAISS index with encoded features
-def query_index(index, query_features, top_k=10):
+
+def query_index(search_index, query_features: np.ndarray, top_k: int = 10) -> List[List[dict]]:
+    """Queries the Faiss index with the given feature vectors."""
     try:
         print(f"Querying index for top {top_k} results...")
-        D, I = index.search(query_features.astype(np.float32), top_k)
+        distances, indices = search_index.search(query_features.astype(np.float32), top_k)
         
         results = []
         for i in range(len(query_features)):
             query_results = []
-            for rank, (idx, score) in enumerate(zip(I[i], D[i])):
-                if idx != -1 and idx < len(image_paths):  # Valid index and within metadata bounds
+            for rank, (idx, score) in enumerate(zip(indices[i], distances[i])):
+                if idx != -1 and idx < len(image_paths):
                     img_path = image_paths[idx]
-                    print("img_path: ", img_path)
-
                     filename = os.path.basename(img_path)
-                    print("FILENAME: ", filename)
-
-                    meta = img_filename_to_metadata[filename]
-                    print("meta: ", meta)
+                    meta = img_filename_to_metadata.get(filename)
                     
-                    # extract image path from metadata
-                    image_path = meta.get('keyframe_path', f"image_{idx}")
-                    
-                    # create structured metadata object
-                    video_metadata = None
-                    if meta and isinstance(meta, dict):
+                    if meta:
                         try:
-                            video_metadata = VideoMetadata(
-                                video_id=meta.get('video_id', ''),
-                                shot=meta.get('shot', 0),
-                                start_frame=meta.get('start_frame', 0),
-                                end_frame=meta.get('end_frame', 0),
-                                start_time=meta.get('start_time', 0.0),
-                                end_time=meta.get('end_time', 0.0),
-                                keyframe_path=meta.get('keyframe_path', '')
-                            )
+                            video_metadata = VideoMetadata(**meta)
+                            query_results.append({
+                                'image_path': video_metadata.keyframe_path,
+                                'score': float(score),
+                                'metadata': video_metadata,
+                                'index': int(idx)
+                            })
                         except Exception as e:
                             print(f"Error creating VideoMetadata for index {idx}: {e}")
-                            video_metadata = None
-                    
-                    query_results.append({
-                        'image_path': image_path,
-                        'score': float(score),
-                        'metadata': video_metadata,
-                        'index': int(idx)
-                    })
             results.append(query_results)
         
         return results
     except Exception as e:
-        print(e)
+        print(f"Error querying index: {e}")
         raise HTTPException(status_code=500, detail=f"Error querying index: {str(e)}")
 
 
@@ -185,8 +192,7 @@ def search_images(
     query: str = Query(..., description="Text query to search for similar images"),
     top_k: int = Query(10, ge=1, le=100, description="Number of results to return")
 ):
-    """Search for images similar to the text query"""
-    
+    """Search for images similar to the text query."""
     if not clip_model or not index:
         raise HTTPException(status_code=503, detail="Models not loaded yet")
     
@@ -194,24 +200,10 @@ def search_images(
         raise HTTPException(status_code=400, detail="Query cannot be empty")
     
     try:
-        # Encode the text query
-        query_features = encode_text([query])  # Pass as list
-        
-        # Search the index
+        query_features = encode_text([query])
         search_results = query_index(index, query_features, top_k)
         
-        print(f"Search results found: {len(search_results[0]) if search_results else 0}")
-
-        # Format results for response
-        formatted_results = []
-        if search_results:
-            for result in search_results[0]:  # Take first query results
-                formatted_results.append(SearchResult(
-                    image_path=result['image_path'],
-                    score=result['score'],
-                    index=result['index'],
-                    metadata=result.get('metadata')
-                ))
+        formatted_results = [SearchResult(**res) for res in search_results[0]] if search_results else []
         
         return SearchResponse(
             query=query,
@@ -224,64 +216,149 @@ def search_images(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
-# get video metadata by image filename
-@app.get("/metadata/{filename}")
-def get_metadata(filename: str):
-    # Get metadata for a specific index
-    if not img_filename_to_metadata[filename]:
-        raise HTTPException(status_code=404, detail="Index not found")
+
+def get_evaluation_list():
+    """Fetches the list of evaluations from DRES."""
+    response = requests.get(f"{DRES_BASE_URL}/client/evaluation/list?session={session['token']}")
+
+    if response.status_code != 200:
+        print("Fetching evaluation list failed:", response.text)
+        return
     
-    meta = img_filename_to_metadata[filename]
+    data = response.json()
+    if data:
+        # Assuming the first evaluation and first task template are the correct ones
+        eval_id = data[0].get("id")
+        eval_name = data[0].get("taskTemplates")[0].get("name")
+        session["evaluationId"] = eval_id
+        session["taskName"] = eval_name
+        print(f"Set evaluationId to {eval_id} and taskName to {eval_name}")
+
+
+@app.post("/login")
+def login():
+    """Logs into the DRES system to get a session token."""
+    body = {"username": USERNAME, "password": PASSWORD}
     try:
-        return VideoMetadata(
-            video_id=meta.get('video_id', ''),
-            shot=meta.get('shot', 0),
-            start_frame=meta.get('start_frame', 0),
-            end_frame=meta.get('end_frame', 0),
-            start_time=meta.get('start_time', 0.0),
-            end_time=meta.get('end_time', 0.0),
-            keyframe_path=meta.get('keyframe_path', '')
-        )
+        response = requests.post(f"{DRES_BASE_URL}/login", json=body)
+        response.raise_for_status()
+        
+        data = response.json()
+        session_id = data.get("sessionId")
+        session["token"] = session_id
+        print("DRES login successful. Session ID:", session_id)
+        get_evaluation_list()
+        return {"status": "success", "sessionId": session_id}
+    except requests.RequestException as e:
+        print(f"DRES login failed: {e}")
+        raise HTTPException(status_code=500, detail=f"DRES login failed: {e}")
+
+
+def dres_submit(text: str=None, mediaItemName: str=None, mediaItemCollName: str="IVADL", start: int=0, end: int=0):
+    """Submits results to the DRES system."""
+    if not session["token"] or not session["evaluationId"]:
+        raise HTTPException(status_code=400, detail="Not logged into DRES or evaluation not set.")
+
+    body_result = {
+        "taskId": session["taskName"], # This should probably be dynamic
+        "answers": [
+            {
+                "text": text,
+                "item": {
+                    "name": mediaItemName,
+                    "collection": mediaItemCollName,
+                },
+                "start": start,
+                "end": end
+            }
+        ]
+    }
+
+    submit_url = f"{DRES_BASE_URL}/evaluation/{session['evaluationId']}/submit?session={session['token']}"
+    try:
+        response = requests.post(submit_url, json=body_result)
+        response.raise_for_status()
+        print("DRES submission successful:", response.text)
+        return response.json()
+    except requests.RequestException as e:
+        print(f"DRES submission failed: {e.text}")
+        raise HTTPException(status_code=500, detail=f"DRES submission failed: {e.text}")
+
+@app.post("/submit")
+def submit():
+    # Example submission, should be replaced with actual data
+    return dres_submit(mediaItemName="00001", start=1000, end=2000)
+
+
+@app.get("/metadata/{filename}", response_model=VideoMetadata)
+def get_metadata_by_filename(filename: str):
+    """Get metadata for a specific keyframe by its filename."""
+    meta = img_filename_to_metadata.get(filename)
+    if not meta:
+        raise HTTPException(status_code=404, detail="Metadata for filename not found")
+    
+    try:
+        return VideoMetadata(**meta)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing metadata: {str(e)}")
 
 
-# check the server status
+@app.get("/stats")
+def get_stats():
+    """Get statistics about the loaded dataset."""
+    if not img_filename_to_metadata:
+        raise HTTPException(status_code=404, detail="No metadata loaded")
+    
+    video_ids = set(meta['video_id'] for meta in img_filename_to_metadata.values() if 'video_id' in meta)
+    total_shots = len({ (meta['video_id'], meta['shot']) for meta in img_filename_to_metadata.values() })
+    
+    return {
+        "total_videos": len(video_ids),
+        "total_shots": total_shots,
+        "total_keyframes": len(image_paths),
+        "video_ids": sorted(list(video_ids))
+    }
+
+@app.get("/videos/{video_name}/shots", response_model=List[Shot])
+def get_video_shots(video_name: str):
+    """
+    Given a video name, returns the list of all shots 
+    with their respective starting and ending times and keyframe path.
+    """
+    if not img_filename_to_metadata:
+        raise HTTPException(status_code=503, detail="Metadata not loaded yet")
+
+    shots = {}
+    for meta in img_filename_to_metadata.values():
+        if meta.get('video_id') == video_name:
+            shot_id = meta.get('shot')
+            # Use a dictionary to automatically handle one keyframe per shot
+            if shot_id is not None and shot_id not in shots:
+                shots[shot_id] = {
+                    "shot": shot_id,
+                    "start_time": meta.get('start_time'),
+                    "end_time": meta.get('end_time'),
+                    "keyframe_path": meta.get('keyframe_path')
+                }
+    
+    if not shots:
+        raise HTTPException(status_code=404, detail=f"Video '{video_name}' not found or has no shots.")
+        
+    # Sort shots by the shot number
+    sorted_shots = sorted(shots.values(), key=lambda x: x['shot'])
+    
+    return sorted_shots
+
+
 @app.get("/health")
 def health_check():
+    """Check the health of the server."""
     return {
         "status": "healthy",
         "models_loaded": clip_model is not None and index is not None,
         "device": device,
         "index_size": index.ntotal if index else 0,
         "metadata_loaded": len(img_filename_to_metadata) > 0
-    }
-
-# get data stats like total videos, total shots, total keyframes, video ids
-@app.get("/stats")
-def get_stats():
-    if not img_filename_to_metadata:
-        return {"error": "No metadata loaded"}
-    
-    video_ids = set()
-    total_shots = 0
-    total_duration = 0.0
-    
-    for meta in img_filename_to_metadata.values():
-        if 'video_id' in meta:
-            video_ids.add(meta['video_id'])
-        if 'shot' in meta:
-            total_shots += 1
-        if 'start_time' in meta and 'end_time' in meta:
-            total_duration += meta['end_time'] - meta['start_time']
-    
-    return {
-        "total_videos": len(video_ids),
-        "total_shots": total_shots,
-        "total_keyframes": len(img_filename_to_metadata),
-        "total_duration_seconds": round(total_duration, 2),
-        "average_shot_duration": round(total_duration / total_shots, 2) if total_shots > 0 else 0,
-        "video_ids": sorted(list(video_ids))
     }
 
 
