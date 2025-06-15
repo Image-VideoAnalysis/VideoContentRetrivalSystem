@@ -11,10 +11,16 @@
       fetchVideos(query, itemsPerPage);
   };
 
+  const login = () => {
+      console.log("Login button clicked");
+      // Implement login functionality here
+  };
+
 </script>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark px-3">
   <a class="navbar-brand" href="/">CBVR System</a>
+  <button class="btn btn-outline-light" type="button" on:click={login}>Login</button>
   <div class="collapse navbar-collapse">
     <form class="d-flex ms-auto" on:submit|preventDefault={submit}>
       <select class="form-select me-2" bind:value={itemsPerPage} style="width: auto;">

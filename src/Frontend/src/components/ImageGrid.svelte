@@ -37,7 +37,7 @@
     : null;
     
     // A computed property to check if submission is possible
-    $: canSubmit = $startTime !== null && $endTime !== null && $startTime < $endTime;
+    $: canSubmit = $startTime !== null && $endTime !== null && $startTime <= $endTime;
 
     // --- FUNCTIONS ---
 
