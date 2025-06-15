@@ -1,12 +1,23 @@
 <script>
+    import Alert from '../components/Alert.svelte';
     import Navbar from '../components/Navbar.svelte';
 
     export let title = "Content-Based Video Retrieval";
 
-    function handleSearch(query) {
-        console.log("Searching for:", query);
-    }
 </script>
+
+<Navbar />
+
+<Alert />
+
+<main>
+  <slot />
+</main>
+
+<footer class="text-center py-3 border-top mt-5">
+  <small>&copy; {new Date().getFullYear()} Your Project Name</small>
+</footer>
+
 
 <style>
   :global(body) {
@@ -56,18 +67,3 @@
     background-color: #444;
   }
 </style>
-
-<!--<header class="navbar navbar-expand-lg navbar-dark px-3">
-  <a class="navbar-brand" href="/">🎬 {title}</a>
-</header>-->
-
-<Navbar onSearch={handleSearch} />
-
-
-<main>
-  <slot />
-</main>
-
-<footer class="text-center py-3 border-top mt-5">
-  <small>&copy; {new Date().getFullYear()} Your Project Name</small>
-</footer>

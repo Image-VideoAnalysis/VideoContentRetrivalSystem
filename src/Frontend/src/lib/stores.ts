@@ -9,6 +9,20 @@ export const images: Writable<GalleryImage[]> = writable([]);
 export const loading: Writable<boolean> = writable(true); // Set to true initially as we'll fetch on mount
 export const error: Writable<string | null> = writable(null);
 
+export let alertMessage = writable('');
+export let alertColor = writable('danger');
+export let alertVisible = writable(false);
+
+export function showAlert(message = "", color = 'danger', duration = 5000) {
+    alertMessage.set(message);
+    alertColor.set(color);
+    alertVisible.set(true);
+
+    setTimeout(() => {
+    alertVisible.set(false);
+    }, duration);
+}
+
 
 /**
  * Function to fetch initial video keyframes.

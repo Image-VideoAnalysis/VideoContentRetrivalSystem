@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { loading, images, error } from "$lib/stores";
+    import { loading, images, error, showAlert } from "$lib/stores";
     import { writable } from "svelte/store";
     import { fly, slide } from 'svelte/transition';
     import { onDestroy } from 'svelte';
@@ -135,7 +135,7 @@
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.detail || 'Submission failed');
+                showAlert(errorData.detail, "danger", 8000);
             }
             
             submissionStatus.set('success');

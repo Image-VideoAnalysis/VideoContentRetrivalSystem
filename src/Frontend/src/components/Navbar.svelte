@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { fetchVideos } from "$lib/stores";
+    import { fetchVideos, showAlert } from "$lib/stores";
     import { writable } from "svelte/store";
 
     let query = "";
@@ -27,7 +27,9 @@
                 console.log("Login successful");
                 loginStatus.set('success');
             } else {
-                console.error("Login failed:", await response.text());
+                const error = await response.json();
+                console.error("Login failed:", error);
+                showAlert(error.detail, "danger", 8000);
                 loginStatus.set('error');
             }
         } catch (error) {
