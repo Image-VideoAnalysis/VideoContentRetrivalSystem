@@ -3,13 +3,104 @@
     import { writable } from "svelte/store";
     import { fly, slide } from 'svelte/transition';
 
-    // Store for currently selected video segment
+    // --- STATE MANAGEMENT ---
+
+    // Store for the currently selected video to play
     const selectedVideo = writable<{ video_id: string; start_time: number; end_time: number } | null>(null);
 
+    // New: Store for the shots of the currently playing video
+    const videoShots = writable<any[]>([]); // Added type for better safety
+    const shotsLoading = writable(false);
+    
+    // New: A reference to the HTML <video> element to control it directly
+    let videoElement: HTMLVideoElement;
+
+    // --- REACTIVE LOGIC ---
+
+    // This block runs whenever the 'selectedVideo' store changes
+    $: if ($selectedVideo) {
+        // When a new video is selected, fetch its shots
+        fetchVideoShots($selectedVideo.video_id);
+    } else {
+        // When the player is closed, clear the list of shots
+        videoShots.set([]);
+    }
+
+    // This key ensures the <video> element is completely re-rendered when the source changes,
+    // avoiding issues with the browser not updating the source correctly.
     $: videoKey = $selectedVideo
     ? `${$selectedVideo.video_id}_${$selectedVideo.start_time}_${$selectedVideo.end_time}`
     : null;
 
+    // --- FUNCTIONS ---
+
+    /**
+     * Fetches all shots for a given video ID from the backend API.
+     * @param {string} videoId - The ID of the video to fetch shots for.
+     */
+    async function fetchVideoShots(videoId: string) {
+        shotsLoading.set(true);
+        try {
+            // Call the new endpoint you created
+            const response = await fetch(`http://localhost:8000/videos/${videoId}/shots`);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            const data = await response.json();
+            videoShots.set(data);
+        } catch (err) {
+            console.error("Failed to fetch video shots:", err);
+            videoShots.set([]); // Clear shots on error
+        } finally {
+            shotsLoading.set(false);
+        }
+    }
+
+    /**
+     * Seeks the main video player to a specific time.
+     * @param {number} time - The time in seconds to seek to.
+     */
+    function seekTo(time: number) {
+        if (videoElement) {
+            videoElement.currentTime = time;
+            videoElement.play(); // Optional: automatically play after seeking
+        }
+    }
+
+    /**
+     * FIX: Handles image loading errors for shot thumbnails.
+     * Replaces the broken image source with a placeholder.
+     * @param {Event} e - The error event.
+     */
+    function handleImageError(e: Event & { currentTarget: HTMLImageElement }) {
+        e.currentTarget.src = 'https://placehold.co/140x79/1e1e1e/aaaaaa?text=Error';
+    }
+
+    /**
+     * FIX: Constructs the correct, full URL for a keyframe image.
+     * The backend provides an absolute file path, but we need a URL relative
+     * to the '/keyframes' static route.
+     * @param {string} keyframePath - The full file path from the backend.
+     */
+    function getImageUrl(keyframePath: string): string {
+        if (!keyframePath) {
+            return 'https://placehold.co/140x79/1e1e1e/aaaaaa?text=No+Path';
+        }
+        // Use a regular expression to split by either /keyframes/ or \keyframes\ (for Windows paths)
+        const pathParts = keyframePath.split(/[\/\\]keyframes[\/\\]/);
+        const relativePath = pathParts.length > 1 ? pathParts[1] : '';
+
+        if (!relativePath) {
+            // As a fallback, try to get the last two parts of the path (e.g., video_id/frame.jpg)
+            const fallbackParts = keyframePath.replace(/\\/g, '/').split('/');
+            if (fallbackParts.length >= 2) {
+                 return `http://localhost:8000/keyframes/${fallbackParts.slice(-2).join('/')}`;
+            }
+            return 'https://placehold.co/140x79/1e1e1e/aaaaaa?text=Bad+Path';
+        }
+
+        return `http://localhost:8000/keyframes/${relativePath.replace(/\\/g, '/')}`;
+    }
 </script>
 
 <!--
@@ -33,7 +124,7 @@
                 </div>
                  <!-- The #key block ensures the video element is re-created when the source changes -->
                 {#key videoKey}
-                    <video controls autoplay width="100%">
+                    <video controls autoplay width="100%" bind:this={videoElement}>
                         <track kind="captions" />
                         <source
                             src={`/videos/V3C1_200/${$selectedVideo.video_id}.mp4#t=${$selectedVideo.start_time},${$selectedVideo.end_time}`}
@@ -42,6 +133,27 @@
                         Your browser does not support the video tag.
                     </video>
                 {/key}
+
+                <!-- === NEW: Related Shots Section === -->
+                <div class="related-shots-container">
+                    {#if $shotsLoading}
+                        <p class="shots-message">Loading shots...</p>
+                    {:else if $videoShots.length > 0}
+                        <h5>Shots in this video</h5>
+                        <div class="shots-grid">
+                            {#each $videoShots as shot (shot.keyframe_path)}
+                                <button class="shot-thumbnail" on:click={() => seekTo(shot.start_time)} title="Go to shot at {shot.start_time.toFixed(2)}s">
+                                    <img 
+                                        src={getImageUrl(shot.keyframe_path)} 
+                                        alt={`Shot ${shot.shot}`}
+                                        on:error={handleImageError}
+                                    />
+                                    <span class="shot-time">{shot.start_time.toFixed(2)}s</span>
+                                </button>
+                            {/each}
+                        </div>
+                    {/if}
+                </div>
             </div>
         {/if}
     </div>
@@ -121,7 +233,6 @@
     }
 
     /* === YOUTUBE-LIKE LAYOUT ACTIVATION === */
-    /* When a video is selected, the container becomes a row, placing the player and list side-by-side */
     .video-selected {
         flex-direction: row;
         gap: 24px;
@@ -129,14 +240,17 @@
     }
 
     .video-selected .video-player-wrapper {
-        flex: 1 1 70%; /* Player takes up most of the space */
+        flex: 1 1 70%;
         position: sticky;
         top: 1rem;
+        /* FIX: Prevent the wrapper from growing taller than the screen */
+        max-height: calc(100vh - 2rem);
+        overflow-y: auto; /* Allow scrolling for the shot list if needed */
     }
 
     .video-selected .thumbnails-container {
-        flex: 1 1 30%; /* Thumbnails take the remaining space */
-        max-width: 420px; /* Max width for the sidebar */
+        flex: 1 1 30%;
+        max-width: 420px;
     }
 
     /* === VIDEO PLAYER === */
@@ -163,8 +277,9 @@
     video {
         display: block;
         background-color: #000;
-        border-bottom-left-radius: 12px;
-        border-bottom-right-radius: 12px;
+        /* FIX: Ensure video scales correctly within its container */
+        width: 100%;
+        height: auto;
     }
 
     /* === CLOSE BUTTON === */
@@ -202,7 +317,6 @@
         transition: all 0.5s ease-in-out;
     }
     
-    /* When video is selected, thumbnail grid becomes a vertical list */
     .video-selected .row {
         display: flex;
         flex-direction: column;
@@ -225,7 +339,6 @@
         background-color: var(--dark-bg-secondary);
     }
 
-    /* Card styling for the list view (when video is selected) */
     .video-selected .card {
         flex-direction: row;
         align-items: center;
@@ -241,7 +354,7 @@
     }
     
     .video-selected .card-img-top {
-        width: 160px; /* Fixed width for list view image */
+        width: 160px;
         flex-shrink: 0;
         margin-right: 12px;
     }
@@ -250,7 +363,6 @@
         padding: 0.75rem 0.25rem;
     }
 
-    /* When in list view, padding is adjusted */
     .video-selected .card-body {
         padding: 0;
     }
@@ -268,6 +380,87 @@
         color: var(--text-secondary);
     }
 
+    /* === NEW: Related Shots Styles === */
+    .related-shots-container {
+        padding: 1rem;
+        background-color: var(--dark-bg-tertiary);
+        border-top: 1px solid var(--border-color);
+    }
+
+    .related-shots-container h5 {
+        margin: 0 0 0.75rem 0;
+        font-weight: 500;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+    
+    .shots-message {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        padding: 0.5rem 0;
+    }
+
+    .shots-grid {
+        display: flex;
+        gap: 0.75rem;
+        overflow-x: auto;
+        padding-bottom: 0.5rem; /* For scrollbar spacing */
+    }
+
+    .shots-grid::-webkit-scrollbar {
+        height: 8px;
+    }
+    .shots-grid::-webkit-scrollbar-track {
+        background: var(--dark-bg-secondary);
+        border-radius: 4px;
+    }
+    .shots-grid::-webkit-scrollbar-thumb {
+        background: #555;
+        border-radius: 4px;
+    }
+    .shots-grid::-webkit-scrollbar-thumb:hover {
+        background: #777;
+    }
+
+    .shot-thumbnail {
+        all: unset; /* Reset button styles */
+        box-sizing: border-box;
+        display: block;
+        position: relative;
+        flex-shrink: 0;
+        width: 140px;
+        aspect-ratio: 16 / 9;
+        border-radius: 6px;
+        overflow: hidden;
+        cursor: pointer;
+        border: 2px solid transparent;
+        transition: border-color 0.2s ease;
+        background-color: var(--dark-bg-secondary);
+    }
+
+    .shot-thumbnail:hover, .shot-thumbnail:focus-visible {
+        border-color: var(--accent-color);
+    }
+
+    .shot-thumbnail img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .shot-time {
+        position: absolute;
+        bottom: 4px;
+        right: 4px;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 2px 6px;
+        font-size: 0.7rem;
+        border-radius: 4px;
+    }
+
+
     /* === MESSAGES === */
     .message-container {
         text-align: center;
@@ -284,16 +477,16 @@
 
     /* === RESPONSIVE ADJUSTMENTS === */
     @media (max-width: 992px) {
-        /* On smaller screens, stack player and list vertically */
         .video-selected {
             flex-direction: column;
             gap: 24px;
         }
         .video-selected .video-player-wrapper {
-            position: static; /* Unstick the player */
+            position: static;
+            max-height: none; /* Remove max-height for stacked layout */
         }
         .video-selected .thumbnails-container {
-            max-width: none; /* Allow list to take full width */
+            max-width: none;
         }
     }
     
