@@ -17,3 +17,4 @@ src/videos_with_fallback/*
 /SBDresults/*
 src/Frontend/static/videos/*
 .env
+*.pyc
