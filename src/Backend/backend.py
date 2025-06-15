@@ -252,6 +252,7 @@ def login():
     except requests.RequestException as e:
         print(f"DRES login failed: {e}")
         raise HTTPException(status_code=500, detail=f"DRES login failed: {e}")
+    
 
 
 def dres_submit(text: str=None, mediaItemName: str=None, mediaItemCollName: str="IVADL", start: int=0, end: int=0):
