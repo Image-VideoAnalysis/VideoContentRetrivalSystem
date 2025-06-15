@@ -2,17 +2,13 @@
     import { loading, images, error } from "$lib/stores";
     import { writable } from "svelte/store";
     import { fly, slide } from 'svelte/transition';
+    import { onDestroy } from 'svelte';
 
     // --- STATE MANAGEMENT ---
 
-    // Store for the currently selected video to play
     const selectedVideo = writable<{ video_id: string; start_time: number; end_time: number } | null>(null);
-
-    // Store for the shots of the currently playing video
     const videoShots = writable<any[]>([]);
     const shotsLoading = writable(false);
-    
-    // Reference to the HTML <video> element
     let videoElement: HTMLVideoElement;
 
     // --- Submission State ---
@@ -24,15 +20,15 @@
     // --- REACTIVE LOGIC ---
 
     // This block runs whenever the 'selectedVideo' store changes
-    $: if ($selectedVideo) {
-        // When a new video is selected, fetch its shots and reset submission state
-        fetchVideoShots($selectedVideo.video_id);
-        startTime.set(null);
-        endTime.set(null);
-        submissionStatus.set('idle');
-    } else {
-        // When the player is closed, clear the list of shots
-        videoShots.set([]);
+    $: {
+        if ($selectedVideo) {
+            fetchVideoShots($selectedVideo.video_id);
+            startTime.set(null);
+            endTime.set(null);
+            submissionStatus.set('idle');
+        } else {
+            videoShots.set([]);
+        }
     }
 
     // This key ensures the <video> element is completely re-rendered when the source changes
@@ -42,7 +38,6 @@
     
     // A computed property to check if submission is possible
     $: canSubmit = $startTime !== null && $endTime !== null && $startTime < $endTime;
-
 
     // --- FUNCTIONS ---
 
@@ -106,7 +101,7 @@
     function setStartTime() {
         if (videoElement) {
             startTime.set(videoElement.currentTime);
-            submissionStatus.set('idle'); // Reset status when time changes
+            submissionStatus.set('idle');
         }
     }
     
@@ -133,7 +128,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     mediaItemName: $selectedVideo.video_id,
-                    start: Math.floor($startTime * 1000), // Convert to milliseconds
+                    start: Math.floor($startTime * 1000),
                     end: Math.floor($endTime * 1000)
                 }),
             });
@@ -144,12 +139,12 @@
             }
             
             submissionStatus.set('success');
-            setTimeout(() => submissionStatus.set('idle'), 2000); // Reset after 2s
+            setTimeout(() => submissionStatus.set('idle'), 2000);
 
         } catch (err) {
             console.error('Submission error:', err);
             submissionStatus.set('error');
-            setTimeout(() => submissionStatus.set('idle'), 3000); // Reset after 3s
+            setTimeout(() => submissionStatus.set('idle'), 3000);
         }
     }
 </script>
@@ -225,7 +220,6 @@
                                         alt={`Shot ${shot.shot}`}
                                         on:error={handleImageError}
                                     />
-                                    <!-- FIX: Added shot number -->
                                     <span class="shot-number">Shot {shot.shot}</span>
                                     <span class="shot-time">{shot.start_time.toFixed(2)}s</span>
                                 </button>
@@ -305,32 +299,33 @@
         max-width: 1800px;
         margin: 1rem auto;
         padding: 0 1rem;
-        transition: all 0.5s ease-in-out;
     }
 
     /* === YOUTUBE-LIKE LAYOUT ACTIVATION === */
-    .video-selected {
+    /* FIX: This is now a fixed-position overlay */
+    .page-container.video-selected {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: var(--dark-bg-primary);
+        z-index: 1000;
         flex-direction: row;
         gap: 24px;
-        align-items: flex-start;
+        padding: 1rem;
+        margin: 0;
+        box-sizing: border-box;
     }
 
     .video-selected .video-player-wrapper {
-        /* FIX: Let this column be flexible */
         flex: 1;
-        min-width: 0; /* Important fix for flex items */
-
-        position: sticky;
-        top: 1rem;
-        max-height: calc(100vh - 2rem);
-        overflow-y: auto;
+        min-width: 0;
+        display: flex; /* Use flexbox to manage internal layout */
     }
 
     .video-selected .thumbnails-container {
-        /* FIX: Give this column a fixed base width */
         flex: 0 0 420px;
-        
-        max-height: calc(100vh - 2rem);
         overflow-y: auto;
     }
 
@@ -343,6 +338,9 @@
         border-radius: 12px;
         border: 1px solid var(--border-color);
         overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        width: 100%; /* Ensure it fills the wrapper */
     }
     .video-header {
         display: flex;
@@ -360,6 +358,8 @@
         background-color: #000;
         width: 100%;
         height: auto;
+        /* Allow video to shrink if container is small */
+        max-height: 50vh;
     }
 
     /* === Submission Controls === */
@@ -537,6 +537,8 @@
         padding: 1rem;
         background-color: var(--dark-bg-tertiary);
         border-top: 1px solid var(--border-color);
+        /* Let this area scroll if content overflows */
+        overflow-y: auto;
     }
 
     .related-shots-container h5 {
@@ -583,16 +585,7 @@
     .shot-thumbnail:hover, .shot-thumbnail:focus-visible { border-color: var(--accent-color); }
 
     .shot-thumbnail img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-    .shot-info {
-        background-color: rgba(0, 0, 0, 0.7);
-        color: white;
-        padding: 2px 6px;
-        font-size: 0.7rem;
-        border-radius: 4px;
-    }
     
-    /* FIX: Positioning for shot number and time */
     .shot-number {
         position: absolute;
         top: 4px;
@@ -623,18 +616,21 @@
 
     /* === RESPONSIVE ADJUSTMENTS === */
     @media (max-width: 992px) {
+        .page-container.video-selected {
+            position: relative; /* Revert to normal flow on mobile */
+            height: auto;
+        }
         .video-selected {
             flex-direction: column;
             gap: 24px;
         }
         .video-selected .video-player-wrapper {
-            position: static;
-            max-height: none;
+            overflow-y: visible;
         }
         .video-selected .thumbnails-container { 
-            flex: 1 1 auto; /* Let it be flexible in stacked view */
+            flex: 1 1 auto;
             max-width: none;
-            max-height: none; /* Also remove max-height in stacked view */
+            overflow-y: visible;
         }
     }
     
