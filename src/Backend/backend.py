@@ -23,7 +23,7 @@ PASSWORD = os.getenv("DRES_PASSWORD")
 # DRES session 
 session = {
     "token": None,
-    "evaluationId": None,
+    "evaluationId": "IVADL2025", # for the competition, it should be "IVADL2025"
 }
 
 app = FastAPI()
@@ -259,7 +259,7 @@ def login():
     
 
 
-def dres_submit(text: str=None, mediaItemName: str=None, mediaItemCollName: str="IVADL", start: int=32210, end: int=32210):
+def dres_submit(text: str=None, mediaItemName: str=None, mediaItemCollName: str="IVADL", start: int=0, end: int=0):
     """Submits results to the DRES system."""
     if not session["token"] or not session["evaluationId"]:
         raise HTTPException(status_code=400, detail="Not logged into DRES or evaluation not set.")
@@ -305,35 +305,6 @@ def submit(submission: Submission):
     return submit_res
 
 
-@app.get("/metadata/{filename}", response_model=VideoMetadata)
-def get_metadata_by_filename(filename: str):
-    """Get metadata for a specific keyframe by its filename."""
-    meta = img_filename_to_metadata.get(filename)
-    if not meta:
-        raise HTTPException(status_code=404, detail="Metadata for filename not found")
-    
-    try:
-        return VideoMetadata(**meta)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing metadata: {str(e)}")
-
-
-@app.get("/stats")
-def get_stats():
-    """Get statistics about the loaded dataset."""
-    if not img_filename_to_metadata:
-        raise HTTPException(status_code=404, detail="No metadata loaded")
-    
-    video_ids = set(meta['video_id'] for meta in img_filename_to_metadata.values() if 'video_id' in meta)
-    total_shots = len({ (meta['video_id'], meta['shot']) for meta in img_filename_to_metadata.values() })
-    
-    return {
-        "total_videos": len(video_ids),
-        "total_shots": total_shots,
-        "total_keyframes": len(image_paths),
-        "video_ids": sorted(list(video_ids))
-    }
-
 @app.get("/videos/{video_name}/shots", response_model=List[Shot])
 def get_video_shots(video_name: str):
     """
@@ -363,18 +334,6 @@ def get_video_shots(video_name: str):
     sorted_shots = sorted(shots.values(), key=lambda x: x['shot'])
     
     return sorted_shots
-
-
-@app.get("/health")
-def health_check():
-    """Check the health of the server."""
-    return {
-        "status": "healthy",
-        "models_loaded": clip_model is not None and index is not None,
-        "device": device,
-        "index_size": index.ntotal if index else 0,
-        "metadata_loaded": len(img_filename_to_metadata) > 0
-    }
 
 
 if __name__ == "__main__":

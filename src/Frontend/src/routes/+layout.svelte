@@ -15,7 +15,6 @@
 </main>
 
 <footer class="text-center py-3 border-top mt-5">
-  <small>&copy; {new Date().getFullYear()} Your Project Name</small>
 </footer>
 
 

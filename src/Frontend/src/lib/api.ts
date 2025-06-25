@@ -1,13 +1,7 @@
-// src/services/api.ts
 
+import { videoShots, shotsLoading } from './stores';
 import type {
-    VideoMetadata,
-    SearchResult,
-    SearchResponse,
-    HealthCheckResponse,
-    VideoShotsResponse,
-    StatsResponse
-} from './model'; // Assuming 'model.ts' is where your interfaces are now located.
+    SearchResponse} from './model';
 
 const API_BASE_URL: string = 'http://localhost:8000'; // Replace with your backend URL if different
 
@@ -60,92 +54,19 @@ export async function searchImages(query: string, topK: number = 10): Promise<Se
 }
 
 /**
- * Retrieves metadata for a specific index.
- * @param indexId The ID of the index to retrieve metadata for.
- * @returns A Promise that resolves to a VideoMetadata object.
- * @throws An error if the API call fails or index is not found.
+ * Fetches all shots for a given video ID from the backend API.
  */
-export async function getMetadata(indexId: number): Promise<VideoMetadata> {
+export async function fetchVideoShots(videoId: string) {
+    shotsLoading.set(true);
     try {
-        const response: Response = await fetch(`${API_BASE_URL}/metadata/${indexId}`);
-        if (!response.ok) {
-            const errorData: { detail?: string } = await response.json();
-            throw new Error(errorData.detail || `Failed to fetch metadata for index ${indexId}`);
-        }
-        const data: VideoMetadata = await response.json();
-
-        // Adjust keyframe path for the single metadata object
-        data.keyframe_path = adjustKeyframePath(data.keyframe_path);
-
-        return data;
-    } catch (error: any) {
-        console.error(`Error fetching metadata for index ${indexId}:`, error);
-        throw error;
-    }
-}
-
-/**
- * Retrieves all shots for a specific video ID.
- * @param videoId The ID of the video to retrieve shots for.
- * @returns A Promise that resolves to a VideoShotsResponse object.
- * @throws An error if the API call fails or video ID is not found.
- */
-export async function getVideoShots(videoId: string): Promise<VideoShotsResponse> {
-    try {
-        const response: Response = await fetch(`${API_BASE_URL}/videos/${videoId}`);
-        if (!response.ok) {
-            const errorData: { detail?: string } = await response.json();
-            throw new Error(errorData.detail || `Failed to fetch shots for video ${videoId}`);
-        }
-        const data: VideoShotsResponse = await response.json();
-
-        // Adjust keyframe paths for each shot in the response
-        data.shots = data.shots.map(shot => ({
-            ...shot,
-            keyframe_path: adjustKeyframePath(shot.keyframe_path)
-        }));
-
-        return data;
-    } catch (error: any) {
-        console.error(`Error fetching video shots for ${videoId}:`, error);
-        throw error;
-    }
-}
-
-/**
- * Performs a health check on the backend server.
- * @returns A Promise that resolves to a HealthCheckResponse object.
- * @throws An error if the API call fails.
- */
-export async function getHealthCheck(): Promise<HealthCheckResponse> {
-    try {
-        const response: Response = await fetch(`${API_BASE_URL}/health`);
-        if (!response.ok) {
-            const errorData: { detail?: string } = await response.json();
-            throw new Error(errorData.detail || 'Failed to fetch health status');
-        }
-        return await response.json();
-    } catch (error: any) {
-        console.error('Error fetching health status:', error);
-        throw error;
-    }
-}
-
-/**
- * Retrieves statistics about the loaded data.
- * @returns A Promise that resolves to a StatsResponse object.
- * @throws An error if the API call fails.
- */
-export async function getStats(): Promise<StatsResponse> {
-    try {
-        const response: Response = await fetch(`${API_BASE_URL}/stats`);
-        if (!response.ok) {
-            const errorData: { detail?: string } = await response.json();
-            throw new Error(errorData.detail || 'Failed to fetch stats');
-        }
-        return await response.json();
-    } catch (error: any) {
-        console.error('Error fetching stats:', error);
-        throw error;
+        const response = await fetch(`http://localhost:8000/videos/${videoId}/shots`);
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        videoShots.set(data);
+    } catch (err) {
+        console.error("Failed to fetch video shots:", err);
+        videoShots.set([]);
+    } finally {
+        shotsLoading.set(false);
     }
 }

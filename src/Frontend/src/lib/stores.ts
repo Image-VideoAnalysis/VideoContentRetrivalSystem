@@ -13,6 +13,15 @@ export let alertMessage = writable('');
 export let alertColor = writable('danger');
 export let alertVisible = writable(false);
 
+// --- Submission State ---
+export const startTime = writable<number | null>(null);
+export const endTime = writable<number | null>(null);
+export const submissionStatus = writable<'idle' | 'submitting' | 'success' | 'error'>('idle');
+
+export const selectedVideo = writable<{ video_id: string; start_time: number; end_time: number } | null>(null);
+export const videoShots = writable<any[]>([]);
+export const shotsLoading = writable(false);
+
 export function showAlert(message = "", color = 'danger', duration = 5000) {
     alertMessage.set(message);
     alertColor.set(color);

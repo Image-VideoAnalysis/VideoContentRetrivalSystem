@@ -1,22 +1,11 @@
 <script lang="ts">
-    import { loading, images, error, showAlert } from "$lib/stores";
-    import { writable } from "svelte/store";
+    import { loading, images, error, showAlert, selectedVideo, videoShots, shotsLoading, startTime, endTime, submissionStatus } from "$lib/stores";
     import { fly, slide } from 'svelte/transition';
-    import { onDestroy } from 'svelte';
-
-    // --- STATE MANAGEMENT ---
-
-    const selectedVideo = writable<{ video_id: string; start_time: number; end_time: number } | null>(null);
-    const videoShots = writable<any[]>([]);
-    const shotsLoading = writable(false);
+    import { fetchVideoShots } from "$lib/api";
+    
+    
     let videoElement: HTMLVideoElement;
-
-    // --- Submission State ---
-    const startTime = writable<number | null>(null);
-    const endTime = writable<number | null>(null);
-    const submissionStatus = writable<'idle' | 'submitting' | 'success' | 'error'>('idle');
-
-
+    
     // --- REACTIVE LOGIC ---
 
     // This block runs whenever the 'selectedVideo' store changes
@@ -40,24 +29,6 @@
     $: canSubmit = $startTime !== null && $endTime !== null && $startTime <= $endTime;
 
     // --- FUNCTIONS ---
-
-    /**
-     * Fetches all shots for a given video ID from the backend API.
-     */
-    async function fetchVideoShots(videoId: string) {
-        shotsLoading.set(true);
-        try {
-            const response = await fetch(`http://localhost:8000/videos/${videoId}/shots`);
-            if (!response.ok) throw new Error('Network response was not ok');
-            const data = await response.json();
-            videoShots.set(data);
-        } catch (err) {
-            console.error("Failed to fetch video shots:", err);
-            videoShots.set([]);
-        } finally {
-            shotsLoading.set(false);
-        }
-    }
 
     /**
      * Seeks the main video player to a specific time.
