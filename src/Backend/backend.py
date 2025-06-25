@@ -24,7 +24,6 @@ PASSWORD = os.getenv("DRES_PASSWORD")
 session = {
     "token": None,
     "evaluationId": None,
-    "taskName": None,
 }
 
 app = FastAPI()
@@ -237,8 +236,7 @@ def get_evaluation_list():
         eval_id = data[0].get("id")
         eval_name = data[0].get("taskTemplates")[0].get("name")
         session["evaluationId"] = eval_id
-        session["taskName"] = eval_name
-        print(f"Set evaluationId to {eval_id} and taskName to {eval_name}")
+        print(f"Set evaluationId to {eval_id}")
 
 
 @app.post("/login")
@@ -270,7 +268,7 @@ def dres_submit(text: str=None, mediaItemName: str=None, mediaItemCollName: str=
     "answerSets": [
         {
         "taskId": None,
-        "taskName": session["taskName"],
+        "taskName": None,
         "answers": [
             {
             "text": None,
