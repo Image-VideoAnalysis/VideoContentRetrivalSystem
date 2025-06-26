@@ -6,9 +6,6 @@
     
     let videoElement: HTMLVideoElement;
     
-    // --- REACTIVE LOGIC ---
-
-    // This block runs whenever the 'selectedVideo' store changes
     $: {
         if ($selectedVideo) {
             fetchVideoShots($selectedVideo.video_id);
@@ -25,14 +22,9 @@
     ? `${$selectedVideo.video_id}_${$selectedVideo.start_time}_${$selectedVideo.end_time}`
     : null;
     
-    // A computed property to check if submission is possible
     $: canSubmit = $startTime !== null && $endTime !== null && $startTime <= $endTime;
 
-    // --- FUNCTIONS ---
 
-    /**
-     * Seeks the main video player to a specific time.
-     */
     function seekTo(time: number) {
         if (videoElement) {
             videoElement.currentTime = time;
@@ -40,9 +32,7 @@
         }
     }
 
-    /**
-     * Handles image loading errors for shot thumbnails.
-     */
+
     function handleImageError(e: Event & { currentTarget: HTMLImageElement }) {
         e.currentTarget.src = 'https://placehold.co/140x79/1e1e1e/aaaaaa?text=Error';
     }
@@ -64,21 +54,14 @@
         return `http://localhost:8000/keyframes/${relativePath.replace(/\\/g, '/')}`;
     }
 
-    // --- Submission Functions ---
 
-    /**
-     * Sets the start time for the submission to the video's current time.
-     */
     function setStartTime() {
         if (videoElement) {
             startTime.set(videoElement.currentTime);
             submissionStatus.set('idle');
         }
     }
-    
-    /**
-     * Sets the end time for the submission to the video's current time.
-     */
+
     function setEndTime() {
         if (videoElement) {
             endTime.set(videoElement.currentTime);
@@ -120,10 +103,8 @@
     }
 </script>
 
-<!-- Main container -->
 <div class="page-container" class:video-selected={$selectedVideo !== null}>
 
-    <!-- Video Player Wrapper -->
     <div class="video-player-wrapper">
         {#if $selectedVideo}
             <div class="video-player-container" in:fly={{ y: -20, duration: 400, delay: 200 }} out:slide>
@@ -145,7 +126,6 @@
                     </video>
                 {/key}
                 
-                <!-- Submission Controls -->
                 <div class="submission-controls">
                     <div class="time-selectors">
                         <button class="time-button" on:click={setStartTime}>Set Start</button>
@@ -177,7 +157,6 @@
                     </button>
                 </div>
 
-                <!-- Related Shots Section -->
                 <div class="related-shots-container">
                     {#if $shotsLoading}
                         <p class="shots-message">Loading shots...</p>
@@ -202,7 +181,6 @@
         {/if}
     </div>
 
-    <!-- Thumbnails Container -->
     <div class="thumbnails-container">
         {#if $loading}
             <p class="message-container loading-message">Loading keyframes...</p>
@@ -272,8 +250,6 @@
         padding: 0 1rem;
     }
 
-    /* === YOUTUBE-LIKE LAYOUT ACTIVATION === */
-    /* FIX: This is now a fixed-position overlay */
     .page-container.video-selected {
         position: fixed;
         top: 0;
@@ -300,7 +276,6 @@
         overflow-y: auto;
     }
 
-    /* === VIDEO PLAYER === */
     .video-player-wrapper {
         transition: all 0.5s ease-in-out;
     }
@@ -406,7 +381,6 @@
         background-color: var(--error-color);
     }
 
-    /* === CLOSE BUTTON === */
     .close-button {
         background: transparent;
         border: none;
@@ -428,7 +402,6 @@
         height: 20px;
     }
 
-    /* === THUMBNAILS === */
     .thumbnails-container {
         width: 100%;
         transition: all 0.5s ease-in-out;
@@ -503,7 +476,6 @@
         color: var(--text-secondary);
     }
 
-    /* === Related Shots Styles === */
     .related-shots-container {
         padding: 1rem;
         background-color: var(--dark-bg-tertiary);
@@ -580,7 +552,6 @@
     }
 
 
-    /* === MESSAGES === */
     .message-container { text-align: center; padding: 2rem; font-size: 1.2rem; color: var(--text-secondary); }
     .error-message { color: #ff8a8a; }
     .loading-message { color: var(--accent-color); }

@@ -5,7 +5,6 @@
     let query = "";
     let itemsPerPage = 10;
     
-    // --- State for Login ---
     const loginStatus = writable<'idle' | 'loading' | 'success' | 'error'>('idle');
 
     const submit = () => {
@@ -13,9 +12,6 @@
         fetchVideos(query, itemsPerPage);
     };
 
-    /**
-     * Calls the backend /login endpoint and updates the UI based on the response.
-     */
     const login = async () => {
         loginStatus.set('loading');
         try {
@@ -42,7 +38,6 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark px-3">
     <a class="navbar-brand" href="/">CBVR System</a>
     
-    <!-- Login Button and Status Indicator -->
     <div class="login-container">
         <button 
             class="btn btn-outline-light" 

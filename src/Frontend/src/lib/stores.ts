@@ -54,19 +54,18 @@ export async function fetchVideos(query: string = "guitar", top_k: number = 10):
                 alt: `Keyframe from Video ${result.metadata?.video_id || 'N/A'} Shot ${result.metadata?.shot || 'N/A'}`,
                 title: `Video ${result.metadata?.video_id || 'N/A'} - Shot ${result.metadata?.shot || 'N/A'}`,
                 video_id: result.metadata?.video_id || 'N/A',
-                // Format times to 2 decimal places for display
                 start_time: (result.metadata?.start_time || 0).toFixed(2),
                 end_time: (result.metadata?.end_time || 0).toFixed(2)
             }));
-            images.set(mappedImages); // Update the store with fetched images
+            images.set(mappedImages);
         } else {
-            images.set([]); // No results found
+            images.set([]);
         }
     } catch (err: any) {
         console.error("Failed to fetch initial videos:", err);
         error.set(err.message || "Could not load initial video keyframes.");
     } finally {
-        loading.set(false); // End loading state
+        loading.set(false);
     }
 }
 
