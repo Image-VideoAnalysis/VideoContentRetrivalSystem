@@ -1,11 +1,13 @@
 <script lang="ts">
-    import { fetchVideos, showAlert } from "$lib/stores";
-    import { writable } from "svelte/store";
+    import { evaluationList, fetchVideos, setEvaluationList, showAlert, selectedEvaluationId, loginStatus } from "$lib/stores";
 
     let query = "";
     let itemsPerPage = 10;
     
-    const loginStatus = writable<'idle' | 'loading' | 'success' | 'error'>('idle');
+    // Access the evaluation list reactively
+    $: evaluations = $evaluationList;
+
+    $: isLoggedIn = $loginStatus === 'success';
 
     const submit = () => {
         console.log("Searching keyframes for:", query);
@@ -22,6 +24,11 @@
             if (response.ok) {
                 console.log("Login successful");
                 loginStatus.set('success');
+                const res = await response.json();
+                const evalArray = res.evaluations.map(({ id, name }) => ({ id, name }));
+                console.log("Evaluations:", evalArray);
+                setEvaluationList(res.evaluations);
+
             } else {
                 const error = await response.json();
                 console.error("Login failed:", error);
@@ -39,6 +46,14 @@
     <a class="navbar-brand" href="/">CBVR System</a>
     
     <div class="login-container">
+        {#if isLoggedIn}
+            <select class="form-select me-2" bind:value={$selectedEvaluationId} style="width: auto;">
+                <option value="" disabled selected>Select an evaluation</option>
+                {#each evaluations as el}
+                <option value={el.id}>{el.id} - {el.name}</option>
+                {/each}
+            </select>
+        {/if}
         <button 
             class="btn btn-outline-light" 
             type="button" 

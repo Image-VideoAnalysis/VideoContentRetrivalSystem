@@ -86,6 +86,7 @@ class Submission(BaseModel):
     mediaItemName: str
     start: int
     end: int
+    evaluationId: str
 
 def load_image_paths():
     """Loads all image paths from the keyframes directory."""
@@ -231,12 +232,13 @@ def get_evaluation_list():
         return
     
     data = response.json()
+    print("Fetched evaluation list:", data)
     if data:
         # Assuming the first evaluation and first task template are the correct ones
         eval_id = data[0].get("id")
-        eval_name = data[0].get("taskTemplates")[0].get("name")
         session["evaluationId"] = eval_id
         print(f"Set evaluationId to {eval_id}")
+        return data
 
 
 @app.post("/login")
@@ -251,8 +253,8 @@ def login():
         session_id = data.get("sessionId")
         session["token"] = session_id
         print("DRES login successful. Session ID:", session_id)
-        get_evaluation_list()
-        return {"status": "success", "sessionId": session_id}
+        eval_list = get_evaluation_list()
+        return {"status": "success", "sessionId": session_id, "evaluations": eval_list}
     except requests.RequestException as e:
         print(f"DRES login failed: {e}")
         raise HTTPException(status_code=500, detail=f"DRES login failed: {e}")
@@ -290,6 +292,9 @@ def dres_submit(text: str=None, mediaItemName: str=None, mediaItemCollName: str=
 @app.post("/submit")
 def submit(submission: Submission):
     print("Received submission:", submission)
+    print("Eval id: ", submission.evaluationId)
+    
+    session["evaluationId"] = submission.evaluationId
 
     submit_res = dres_submit(
         mediaItemName=submission.mediaItemName,

@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { loading, images, error, showAlert, selectedVideo, videoShots, shotsLoading, startTime, endTime, submissionStatus } from "$lib/stores";
+    import { loading, images, error, showAlert, selectedVideo, videoShots, shotsLoading, startTime, endTime, submissionStatus, selectedEvaluationId } from "$lib/stores";
     import { fly, slide } from 'svelte/transition';
     import { fetchVideoShots } from "$lib/api";
     
@@ -83,7 +83,8 @@
                 body: JSON.stringify({
                     mediaItemName: $selectedVideo.video_id,
                     start: Math.floor($startTime * 1000),
-                    end: Math.floor($endTime * 1000)
+                    end: Math.floor($endTime * 1000),
+                    evaluationId: $selectedEvaluationId,
                 }),
             });
 
@@ -91,9 +92,18 @@
                 const errorData = await response.json();
                 showAlert(errorData.detail, "danger", 8000);
             }
-            
-            submissionStatus.set('success');
-            setTimeout(() => submissionStatus.set('idle'), 2000);
+            else {
+                const res = await response.json();
+                console.log('Submission response:', res);
+                if (res.submission == "CORRECT") {
+                    showAlert("Selection submitted successfully!", "success", 5000);
+                    submissionStatus.set('success');
+                } else {
+                    showAlert("Submission failed: " + res.description, "danger", 8000);
+                    submissionStatus.set('error');
+                }
+                setTimeout(() => submissionStatus.set('idle'), 2000);
+            }
 
         } catch (err) {
             console.error('Submission error:', err);

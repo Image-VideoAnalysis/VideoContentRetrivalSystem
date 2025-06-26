@@ -1,5 +1,5 @@
 
-import type { GalleryImage, SearchResult } from "$lib/model";
+import type { Evaluation, GalleryImage, SearchResult } from "$lib/model";
 import { writable, type Writable } from 'svelte/store';
 import { searchImages } from "$lib/api";
 
@@ -8,6 +8,10 @@ import { searchImages } from "$lib/api";
 export const images: Writable<GalleryImage[]> = writable([]);
 export const loading: Writable<boolean> = writable(true); // Set to true initially as we'll fetch on mount
 export const error: Writable<string | null> = writable(null);
+export const evaluationList: Writable<Evaluation[]> = writable([]);
+export const selectedEvaluationId = writable<string>('');
+export const loginStatus = writable<'idle' | 'loading' | 'success' | 'error'>('idle');
+
 
 export let alertMessage = writable('');
 export let alertColor = writable('danger');
@@ -21,6 +25,7 @@ export const submissionStatus = writable<'idle' | 'submitting' | 'success' | 'er
 export const selectedVideo = writable<{ video_id: string; start_time: number; end_time: number } | null>(null);
 export const videoShots = writable<any[]>([]);
 export const shotsLoading = writable(false);
+
 
 export function showAlert(message = "", color = 'danger', duration = 5000) {
     alertMessage.set(message);
@@ -69,3 +74,11 @@ export async function fetchVideos(query: string = "guitar", top_k: number = 10):
     }
 }
 
+export async function setEvaluationList(evaluations: {id: string, name: string}[]): Promise<void> {
+    try {
+        evaluationList.set(evaluations);
+    } catch (err: any) {
+        console.error("Failed to set evaluation list:", err);
+        error.set(err.message || "Could not set evaluation list.");
+    }
+}
