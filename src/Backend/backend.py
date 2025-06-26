@@ -330,7 +330,6 @@ def get_video_shots(video_name: str):
     if not shots:
         raise HTTPException(status_code=404, detail=f"Video '{video_name}' not found or has no shots.")
         
-    # Sort shots by the shot number
     sorted_shots = sorted(shots.values(), key=lambda x: x['shot'])
     
     return sorted_shots

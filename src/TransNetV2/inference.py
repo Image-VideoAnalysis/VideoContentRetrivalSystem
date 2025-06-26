@@ -1,4 +1,3 @@
-# https://github.com/soCzech/TransNetV2
 import torch
 import ffmpeg
 import numpy as np
@@ -53,7 +52,6 @@ def predict_raw(model, video, device=torch.device('cpu')):
         predictions = []
         for inp in input_iterator(video):
             video_tensor = torch.from_numpy(inp)
-            # shape: batch dim x video frames x frame height x frame width x RGB (not BGR) channels
             video_tensor = video_tensor.to(device)
 
             single_frame_pred, all_frame_pred = model(video_tensor)
