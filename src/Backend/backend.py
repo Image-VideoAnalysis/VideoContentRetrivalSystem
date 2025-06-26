@@ -281,7 +281,7 @@ def dres_submit(text: str=None, mediaItemName: str=None, mediaItemCollName: str=
         }
     ]
     }
-    response = requests.post(f"{DRES_BASE_URL}/submit/{session['evaluationId']}?session={session["token"]}", json=body_result)
+    response = requests.post(f"{DRES_BASE_URL}/submit/{session['evaluationId']}?session={session['token']}", json=body_result)
 
     print("STATUS", response.status_code)    
     print("Response: ", response.text)

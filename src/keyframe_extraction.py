@@ -16,13 +16,6 @@ def fetch_nearest_decodable_frame(cap: cv2.VideoCapture,
                                   start: int,
                                   end: int,
                                   max_probe: int = 15) -> tuple[bool, np.ndarray]:
-    """
-    Try to grab `target` first.  If it fails, probe ±1, ±2, … up to `max_probe`
-    frames (clamped to [start, end]) and return the first decodable frame.
-
-    Returns (success_flag, frame_bgr).
-    """
-    
     # order: target, target+1, target-1, target+2, target-2, ...
     offsets = [0]
     for d in range(1, max_probe + 1):
@@ -38,15 +31,11 @@ def fetch_nearest_decodable_frame(cap: cv2.VideoCapture,
 
 
 
-def process_video(video_path: str, keyframe_dir: str, model: TransNetV2,  CLIP_model, processor, fallback_enabled: bool = False,):
-    """
-    Detect shots in `video_path`, extract one key-frame per shot,
-    fallback to time-based sampling if keyframe density is too low,
-    store them under  keyframe_dir/<video_name>/,
-    and return a list of dictionaries with metadata.
-    """
-    predicted_fallback_keyframes = []
-    
+def process_video(video_path: str, 
+                  keyframe_dir: str, 
+                  model: TransNetV2,  
+                  CLIP_model, processor, 
+                  fallback_enabled: bool = False,):
     try:
         # Derive a simple ID for the video (file name without suffix)
         video_name = os.path.splitext(os.path.basename(video_path))[0]
@@ -61,7 +50,7 @@ def process_video(video_path: str, keyframe_dir: str, model: TransNetV2,  CLIP_m
         with torch.no_grad():
             shots = np.array(predict_video(video_path, model))
             
-        # OpenCV video handle, used to grab individual frames
+        # OpenCV video handle
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise FileNotFoundError(f"Could not open {video_path}")
@@ -74,16 +63,16 @@ def process_video(video_path: str, keyframe_dir: str, model: TransNetV2,  CLIP_m
 
             
         # Fallback if keyframe density is too low
-        MIN_KEYFRAME_DENSITY = 1 / 10  # at least 1 every 20 sec
-        FALLBACK_INTERVAL_SEC = 5
+        MIN_KEYFRAME_DENSITY = 1 / 10  # at least 1 every 10 sec
+        FALLBACK_INTERVAL_SEC = 5 # read image every 5 sec
         actual_density = len(shots) / duration_sec
         
         if fallback_enabled and actual_density < MIN_KEYFRAME_DENSITY:
             print(f" Low keyframe density ({actual_density:.4f} keyframes/sec). Triggering fallback...")
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             interval_frames = int(FALLBACK_INTERVAL_SEC * fps)
-            fallback_imgs   = []   # PIL images
-            fallback_frames = []   # corresponding frame numbers
+            fallback_imgs   = []   
+            fallback_frames = [] 
             
             for frame_idx in range(0, frame_count, interval_frames):
                 
@@ -100,27 +89,27 @@ def process_video(video_path: str, keyframe_dir: str, model: TransNetV2,  CLIP_m
             inputs = processor(images=fallback_imgs, return_tensors="pt", padding=True)
             with torch.no_grad():
                 feats = CLIP_model.get_image_features(**inputs)
-            # Normalize to unit length (L2)
+            
             feats = feats / feats.norm(dim=-1, keepdim=True)
             embeddings = feats.cpu().numpy().astype('float32')
             
             labels = DBSCAN(eps=0.1, min_samples=1, metric='cosine').fit_predict(embeddings)
             
             unique_lbls = [l for l in set(labels) if l != -1] # skip noise/outliers
-            repr_idx = []                       # indices of the chosen key-frames
+            repr_idx = []               
 
             for lbl in unique_lbls:
-                idx   = np.where(labels == lbl)[0]    # frames in this cluster
-                embs  = embeddings[idx]               # shape (m, 512)
+                idx   = np.where(labels == lbl)[0]  
+                embs  = embeddings[idx]               
 
-                # cluster centroid (mean of unit vectors, still ≈ unit length)
+                # find cluster centroid 
                 centroid = embs.mean(axis=0, keepdims=True)
                 centroid /= np.linalg.norm(centroid, axis=1, keepdims=True)
 
                 # cosine similarities to the centroid  (dot product because all unit-norm)
                 sims = (embs @ centroid.T).ravel()
 
-                best_local = idx[sims.argmax()]       # medoid index in the *global* list
+                best_local = idx[sims.argmax()]
                 repr_idx.append(best_local)
 
             repr_idx.extend(np.where(labels == -1)[0])
@@ -153,7 +142,7 @@ def process_video(video_path: str, keyframe_dir: str, model: TransNetV2,  CLIP_m
                 
                 # Skip if TransNetV2 produced an out-of-range index
                 if mid_frame >= frame_count:
-                    print(f"⚠️  mid-frame {mid_frame} beyond EOF – skipped")
+                    print(f"mid-frame {mid_frame} beyond EOF")
                     continue
                 
                 # Find the middle frame and read it
@@ -170,7 +159,7 @@ def process_video(video_path: str, keyframe_dir: str, model: TransNetV2,  CLIP_m
                     ret, frame = cap.read()
                     
                 if not ret:
-                    print(f"⚠️  Could not grab any frame in shot {idx}")
+                    print(f"Could not grab any frame in shot {idx}")
                     continue
 
                 
@@ -238,7 +227,6 @@ if __name__ == "__main__":
                 video_path = os.path.join(input_path, fname)
                 segment_metadata = process_video(video_path, keyframe_path, model, CLIP_model, processor, args.fallback)
                 
-                # Write per-video metadata JSON
                 video_name = os.path.splitext(fname)[0]
                 meta_file  = os.path.join(metadata_path, f"{video_name}.json")
                 with open(meta_file, "w") as f:
