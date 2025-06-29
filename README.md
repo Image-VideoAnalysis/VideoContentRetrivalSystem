@@ -1,41 +1,103 @@
 # Visual Content Analysis
 
-### Shot boundary detection and keyframe extraction
+This project is a visual content analysis tool that allows you to search for videos using natural language queries. It uses a combination of computer vision and natural language processing techniques to understand the content of videos and match it with your search queries.
 
- To run the code on your local machine, you have to create a *virtual environment* by using:
+## Features
 
- `python3 -m venv venv_name`
+-   **Shot Boundary Detection**: The project uses a TransNetV2 model to detect shot boundaries in videos.
+-   **Keyframe Extraction**: For each shot, a keyframe is extracted to represent the content of the shot.
+-   **Image-Text Similarity**: The project uses OpenAI's CLIP model to compute the similarity between your text query and the extracted keyframes.
+-   **Vector Search**: The project uses Faiss to perform efficient similarity search on the CLIP image embeddings.
+-   **Web Interface**: The project provides a web interface built with Svelte and FastAPI to interact with the system.
 
- Then you can activate your virtual environment by doing this:
+## Project Structure
 
- - for Windows CMD:
+The project is divided into a backend and a frontend.
 
-`venv_name\Scripts\activate.bat`
+-   **Backend**: The backend is responsible for processing videos, extracting keyframes, and performing the similarity search. It is built with Python and FastAPI.
+-   **Frontend**: The frontend provides a user interface to upload videos and search for them using text queries. It is built with Svelte.
 
-- for Windows PowerShell:
-`venv_name\Scripts\Activate.ps1`
-
- - for Linux/MacOS:
-`source venv_name/bin/activate`
-
-- To create a conda env from the requirements:
-`conda env create -f environment.yml -p /home/user/anaconda3/envs/env_name`
-
-- There are two environment files (one for Windows and the other one for MAC OS)
-
-- In Windows, the library **cv2** could give some problems. To solve them, try to reinstall it in the conda environment:
-
-`conda install opencv`
-
-`pip install opencv-python`
-
+## Installation
 
 ### Backend
 
-- To launch the **FastAPI** backend, run the following command:
+1.  **Create a Conda environment**:
 
-`fastapi dev backend.py`
-or
-`uvicorn backend:app --reload`
+    ```bash
+    conda env create -f environment.yml -p /home/user/anaconda3/envs/env_name
+    ```
 
- 
+    There are two environment files available: `environment_mac.yml` for macOS and `environment_windows.yml` for Windows.
+
+2.  **Activate the Conda environment**:
+
+    -   For Windows CMD:
+
+        ```bash
+        venv_name\Scripts\activate.bat
+        ```
+
+    -   For Windows PowerShell:
+
+        ```bash
+        venv_name\Scripts\Activate.ps1
+        ```
+
+    -   For Linux/macOS:
+
+        ```bash
+        source venv_name/bin/activate
+        ```
+
+3.  **Install OpenCV**:
+
+    In some cases, the `cv2` library might cause issues. To solve them, try reinstalling it in the Conda environment:
+
+    ```bash
+    conda install opencv
+    pip install opencv-python
+    ```
+
+### Frontend
+
+1.  **Navigate to the frontend directory**:
+
+    ```bash
+    cd src/Frontend
+    ```
+
+2.  **Install the dependencies**:
+
+    ```bash
+    npm install
+    ```
+
+## Data Setup
+
+At the root level of the project, you need to create a folder named `Dataset`. This folder should contain the videos you want to analyze.
+
+## Usage
+
+1.  **Start the backend**:
+
+    ```bash
+    fastapi dev backend.py
+    ```
+
+    or
+
+    ```bash
+    uvicorn backend:app --reload
+    ```
+
+2.  **Start the frontend**:
+
+    ```bash
+    npm run dev
+    ```
+
+3.  **Open your browser** and navigate to `http://localhost:5173`.
+Ex
+## License
+
+[MIT](https.choosealicense.com/licenses/mit/)
