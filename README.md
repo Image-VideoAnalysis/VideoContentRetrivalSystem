@@ -19,7 +19,11 @@ The project is divided into a backend and a frontend.
 
 ## Data Setup
 
-To run the model in inference, it is NECESSARY to put into the folder `src/Frontend/static/videos` a folder named `V3C1_200` containing the videos dataset used for training. Also, the folder `Dataset` must be put also outside the src folder ONLY IF the shot boundary detection needs to be done.
+### For Inference (Video Search)
+To run the system in inference mode and search the pre-existing dataset, you **must** place the `V3C1_200` video dataset folder into `src/Frontend/static/videos/`. This allows the web interface to retrieve and display the correct videos from search results.
+
+### For Processing New Videos (Shot Boundary Detection)
+If you need to run the shot boundary detection on new videos, you must place a `Dataset` folder at the project's root directory. This folder should contain the new videos you wish to process. This step is **only** necessary for analyzing new content, not for searching the existing dataset.
 
 ## Installation
 
