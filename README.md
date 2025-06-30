@@ -1,14 +1,14 @@
-# Visual Content Analysis
+# Video Retrieval System
 
-This project is a visual content analysis tool that allows you to search for videos using natural language queries. It uses a combination of computer vision and natural language processing techniques to understand the content of videos and match it with your search queries.
+This project is a visual content analysis tool developed for the course "Image and Video Analysis with Deep Learning".
 
 ## Features
 
--   **Shot Boundary Detection**: The project uses a TransNetV2 model to detect shot boundaries in videos.
+-   **Shot Boundary Detection**:  TransNetV2 model is used to detect shot boundaries in videos.
 -   **Keyframe Extraction**: For each shot, a keyframe is extracted to represent the content of the shot.
--   **Image-Text Similarity**: The project uses OpenAI's CLIP model to compute the similarity between your text query and the extracted keyframes.
--   **Vector Search**: The project uses Faiss to perform efficient similarity search on the CLIP image embeddings.
--   **Web Interface**: The project provides a web interface built with Svelte and FastAPI to interact with the system.
+-   **Image-Text Similarity**: An OpenAI's CLIP model computes the similarity between your text query and the extracted keyframes.
+-   **Vector Search**: Faiss lets perform efficient similarity search on the CLIP image embeddings.
+-   **Web Interface**: A web interface built with Svelte and FastAPI is provided to interact with the system.
 
 ## Project Structure
 
@@ -82,6 +82,17 @@ This method is an alternative to Conda and uses standard Python tools.
     ```
     **Note**: This method might require you to manually resolve system-level dependencies if you encounter errors with packages like PyTorch or Faiss.
 
+### Frontend
+
+1.  **Navigate to the frontend directory**:
+    ```bash
+    cd src/Frontend
+    ```
+2.  **Install the dependencies**:
+    ```bash
+    npm install
+    ```
+
 ### System-Level Dependencies
 
 #### FFmpeg
@@ -94,18 +105,6 @@ The Shot Boundary Detection feature relies on the `ffmpeg` command-line tool. If
     ```
 -   **Windows and Linux**:
     Please refer to the official FFmpeg website for installation instructions: [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html)
-
-### Frontend
-
-1.  **Navigate to the frontend directory**:
-    ```bash
-    cd src/Frontend
-    ```
-2.  **Install the dependencies**:
-    ```bash
-    npm install
-    ```
-
 
 ## Usage
 
