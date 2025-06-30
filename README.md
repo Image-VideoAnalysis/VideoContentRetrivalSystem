@@ -78,6 +78,23 @@ Alternatively, you can use the `requirements.txt` file to install the dipendence
     npm install
     ```
 
+### System-Level Dependencies
+
+#### FFmpeg
+
+The Shot Boundary Detection relies on the `ffmpeg` tool. If you intend to use this feature, you must have `ffmpeg` installed on your system. However, if you only plan to use the application for inference, you do not need to install it.
+
+**macOS (using Homebrew):**
+
+```bash
+brew install ffmpeg
+```
+
+**Windows and Linux:**
+
+For Windows and Linux, please refer to the official FFmpeg website for installation instructions: [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html)
+
+
 ## Usage
 
 1.  **Start the backend**:
@@ -99,7 +116,7 @@ Alternatively, you can use the `requirements.txt` file to install the dipendence
     ```
 
 3.  **Open your browser** and navigate to `http://localhost:5173`.
-Ex
+
 ## Troubleshooting
 
 ### macOS Error: OMP: Error #15
