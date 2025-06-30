@@ -19,7 +19,7 @@ The project is divided into a backend and a frontend.
 
 ## Data Setup
 
-At the root level of the project, you need to create a folder named `Dataset`. This folder should contain the videos you want to analyze.
+To run the model in inference, it is NECESSARY to put into the folder `src/Frontend/static/videos` a folder named `V3C1_200` containing the videos dataset used for training. Also, the folder `Dataset` must be put also outside the src folder ONLY IF the shot boundary detection needs to be done.
 
 ## Installation
 
