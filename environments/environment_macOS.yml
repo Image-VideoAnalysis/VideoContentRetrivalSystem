@@ -1,4 +1,4 @@
-name: VCA-conda
+name: test
 channels:
   - pytorch
   - conda-forge
@@ -246,9 +246,6 @@ dependencies:
   - zstd=1.5.6=hfb09047_0
   - pip:
       - click==8.2.1
-      - clip==1.0
-      - dnspython==2.7.0
-      - email-validator==2.2.0
       - fastapi-cli==0.0.7
       - ftfy==6.3.1
       - h11==0.16.0
@@ -262,8 +259,6 @@ dependencies:
       - rich-toolkit==0.14.7
       - shellingham==1.5.4
       - torch==2.7.1
-      - torchaudio==2.7.1
-      - torchvision==0.22.1
       - typer==0.16.0
       - uvicorn==0.34.3
       - uvloop==0.21.0

@@ -100,6 +100,24 @@ Alternatively, you can use the `requirements.txt` file to install the dipendence
 
 3.  **Open your browser** and navigate to `http://localhost:5173`.
 Ex
+## Troubleshooting
+
+### macOS Error: OMP: Error #15
+
+If you encounter the following error on macOS when starting the backend:
+
+```
+OMP: Error #15: Initializing libomp.dylib, but found libomp.dylib already initialized.
+OMP: Hint This means that multiple copies of the OpenMP runtime have been linked into the program. That is dangerous, since it can degrade performance or cause incorrect results. The best thing to do is to ensure that only a single OpenMP runtime is linked into the process, e.g. by avoiding static linking of the OpenMP runtime in any library. As an unsafe, unsupported, undocumented workaround you can set the environment variable KMP_DUPLICATE_LIB_OK=TRUE to allow the program to continue to execute, but that may cause crashes or silently produce incorrect results. For more information, please see http://openmp.llvm.org/
+zsh: abort      fastapi dev backend.py
+```
+
+One known workaround is starting the backend with the following command:
+
+```bash
+env KMP_DUPLICATE_LIB_OK=TRUE python src/Backend/backend.py
+```
+
 ## License
 
 [MIT](https.choosealicense.com/licenses/mit/)
