@@ -17,6 +17,10 @@ The project is divided into a backend and a frontend.
 -   **Backend**: The backend is responsible for processing videos, extracting keyframes, and performing the similarity search. It is built with Python and FastAPI.
 -   **Frontend**: The frontend provides a user interface to upload videos and search for them using text queries. It is built with Svelte.
 
+## Data Setup
+
+At the root level of the project, you need to create a folder named `Dataset`. This folder should contain the videos you want to analyze.
+
 ## Installation
 
 ### Backend
@@ -46,7 +50,7 @@ The project is divided into a backend and a frontend.
     -   For Linux/macOS:
 
         ```bash
-        source venv_name/bin/activate
+        conda activate env_name
         ```
 
 3.  **Install OpenCV**:
@@ -71,10 +75,6 @@ The project is divided into a backend and a frontend.
     ```bash
     npm install
     ```
-
-## Data Setup
-
-At the root level of the project, you need to create a folder named `Dataset`. This folder should contain the videos you want to analyze.
 
 ## Usage
 
