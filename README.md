@@ -33,7 +33,7 @@ At the root level of the project, you need to create a folder named `Dataset`. T
 
     There are two environment files available: `environment_mac.yml` for macOS and `environment_windows.yml` for Windows.
 
-2.  **Activate the Conda environment**:
+3.  **Activate the Conda environment**:
 
     -   For Windows CMD:
 
@@ -53,7 +53,7 @@ At the root level of the project, you need to create a folder named `Dataset`. T
         conda activate env_name
         ```
 
-3.  **Install OpenCV**:
+4.  **Install OpenCV**:
 
     In some cases, the `cv2` library might cause issues. To solve them, try reinstalling it in the Conda environment:
 
@@ -61,6 +61,8 @@ At the root level of the project, you need to create a folder named `Dataset`. T
     conda install opencv
     pip install opencv-python
     ```
+
+Alternatively, you can use the `requirements.txt` file to install the dipendences with pip
 
 ### Frontend
 
