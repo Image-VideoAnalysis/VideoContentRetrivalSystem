@@ -23,76 +23,88 @@ At the root level of the project, you need to create a folder named `Dataset`. T
 
 ## Installation
 
-### Backend
+There are two recommended ways to set up the backend environment: using Conda (recommended for easier dependency management) or using a standard Python virtual environment with pip.
+
+### Option 1: Using Conda
 
 1.  **Create a Conda environment**:
 
+    This is the recommended method as it handles complex dependencies like PyTorch and Faiss automatically. Choose the file for your operating system:
+
     ```bash
-    conda env create -f environment.yml -p /home/user/anaconda3/envs/env_name
+    # For macOS
+    conda env create -f environments/environment_macOS.yml
+
+    # For Windows
+    conda env create -f environments/environment_windows.yml
     ```
 
-    There are two environment files available: `environment_mac.yml` for macOS and `environment_windows.yml` for Windows.
-
-3.  **Activate the Conda environment**:
-
-    -   For Windows CMD:
-
+2.  **Activate the Conda environment**:
+    -   **macOS/Linux**:
         ```bash
-        venv_name\Scripts\activate.bat
+        conda activate VCA-env
+        ```
+    -   **Windows**:
+        ```bash
+        conda activate VCA-env
         ```
 
-    -   For Windows PowerShell:
+### Option 2: Using Pip and Venv
 
+This method is an alternative to Conda and uses standard Python tools.
+
+1.  **Create a Python Virtual Environment**:
+
+    From the root of the project, run:
+    ```bash
+    python3 -m venv venv
+    ```
+
+2.  **Activate the virtual environment**:
+    -   **macOS/Linux**:
         ```bash
-        venv_name\Scripts\Activate.ps1
+        source venv/bin/activate
+        ```
+    -   **Windows (Command Prompt)**:
+        ```bash
+        .\venv\Scripts\activate.bat
+        ```
+    -   **Windows (PowerShell)**:
+        ```bash
+        .\venv\Scripts\Activate.ps1
         ```
 
-    -   For Linux/macOS:
+3.  **Install dependencies**:
 
-        ```bash
-        conda activate env_name
-        ```
-
-4.  **Install OpenCV**:
-
-    In some cases, the `cv2` library might cause issues. To solve them, try reinstalling it in the Conda environment:
-
+    Once the environment is activated, install the required packages from `requirements.txt`:
     ```bash
-    conda install opencv
-    pip install opencv-python
+    pip install -r requirements.txt
     ```
-
-Alternatively, you can use the `requirements.txt` file to install the dipendences with pip
-
-### Frontend
-
-1.  **Navigate to the frontend directory**:
-
-    ```bash
-    cd src/Frontend
-    ```
-
-2.  **Install the dependencies**:
-
-    ```bash
-    npm install
-    ```
+    **Note**: This method might require you to manually resolve system-level dependencies if you encounter errors with packages like PyTorch or Faiss.
 
 ### System-Level Dependencies
 
 #### FFmpeg
 
-The Shot Boundary Detection relies on the `ffmpeg` tool. If you intend to use this feature, you must have `ffmpeg` installed on your system. However, if you only plan to use the application for inference, you do not need to install it.
+The Shot Boundary Detection feature relies on the `ffmpeg` command-line tool. If you intend to use this feature, you must have `ffmpeg` installed on your system. However, if you only plan to use the application for inference (i.e., searching for videos), you do not need to install it.
 
-**macOS (using Homebrew):**
+-   **macOS (using Homebrew)**:
+    ```bash
+    brew install ffmpeg
+    ```
+-   **Windows and Linux**:
+    Please refer to the official FFmpeg website for installation instructions: [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html)
 
-```bash
-brew install ffmpeg
-```
+### Frontend
 
-**Windows and Linux:**
-
-For Windows and Linux, please refer to the official FFmpeg website for installation instructions: [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html)
+1.  **Navigate to the frontend directory**:
+    ```bash
+    cd src/Frontend
+    ```
+2.  **Install the dependencies**:
+    ```bash
+    npm install
+    ```
 
 
 ## Usage
